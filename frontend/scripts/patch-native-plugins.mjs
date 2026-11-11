@@ -39,6 +39,19 @@ const PATCHES = [
       ['this.musicControls.unregisterMediaButtonEvent();', '/* n1ko patch: keep the media session alive on unplug */'],
     ],
   },
+  /*
+   * 安卓：通知栏封面只认 http 地址和本地文件。自定义封面接口、钉住的本地图在网页里是 data: 图片，
+   * 原样传过去会被当成文件路径打开失败，通知栏就没有封面。这里让它直接解码 data: 图片。
+   */
+  {
+    file: 'node_modules/capacitor-music-controls-plugin/android/src/main/java/com/ingageco/capacitormusiccontrols/CapacitorMusicControls.java',
+    edits: [
+      [
+        'if(coverURL.matches("^(https?|ftp)://.*$"))\n\t\t\t\t// Remote image',
+        'if(coverURL.startsWith("data:")) { /* n1ko patch: inline image */ byte[] raw = android.util.Base64.decode(coverURL.substring(coverURL.indexOf(\',\') + 1), android.util.Base64.DEFAULT); return BitmapFactory.decodeByteArray(raw, 0, raw.length); }\n\t\t\tif(coverURL.matches("^(https?|ftp)://.*$"))\n\t\t\t\t// Remote image',
+      ],
+    ],
+  },
 ]
 
 let failed = false

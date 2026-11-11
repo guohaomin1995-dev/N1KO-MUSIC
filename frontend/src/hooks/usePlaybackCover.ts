@@ -10,13 +10,13 @@ import { useCustomCoverUrl } from '@/hooks/useServerQueries'
 import { useCoverUrl, usePinnedCover } from '@/hooks/useCoverUrl'
 import { useSettingsStore } from '@/store/settingsStore'
 
-export function usePlaybackCover(song: Song | null | undefined): {
+export function usePlaybackCover(song: Song | null | undefined, options: { size?: number } = {}): {
   /** 按展示顺序排，前面的失败了再用后面的 */
   urls: string[]
   /** 自定义封面还在下载，先别改成默认色 */
   pending: boolean
 } {
-  const { primary } = useCoverUrl(song ?? undefined, { size: 128 })
+  const { primary } = useCoverUrl(song ?? undefined, { size: options.size ?? 128 })
   const pinned = usePinnedCover(song?.id)
   const template = useSettingsStore(s => s.coverRemoteTemplate)
   const coverSource = useSettingsStore(s => s.coverSource)

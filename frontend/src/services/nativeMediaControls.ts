@@ -6,7 +6,7 @@
  * 事件回流：锁屏/通知上的 play/pause/next/previous/seek 调回 playerStore
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { CapacitorMusicControls } from 'capacitor-music-controls-plugin'
 import { usePlayerStore } from '@/store/playerStore'
 import { seekHowl } from '@/hooks/useAudioEngine'
@@ -14,6 +14,7 @@ import { findAdapterFor } from '@/api'
 import { isNativePlatform, nativeOS } from '@/lib/platform'
 import { notePauseReason } from '@/lib/playbackTrail'
 import { useSettingsStore } from '@/store/settingsStore'
+import { usePlaybackCover } from '@/hooks/usePlaybackCover'
 
 /** 原生端报上来的一次按键：message 是按键名，拖动进度时带 position（秒） */
 interface RemoteEvent {
@@ -31,6 +32,67 @@ function togglePlayRemote() {
   }
 }
 
+const songKey = (song: { serverId?: string; id: string } | null) => (song ? `${song.serverId ?? ''}:${song.id}` : null)
+
+/**
+ * 封面列表的指纹。data: 图片有几百 KB，拿长度和中间一段比就够了；
+ * 服务器封面地址每次生成都带新的随机鉴权参数（t / s），比之前先去掉，不然同一张图也算「变了」
+ */
+function coversIdentity(urls: string[]): string {
+  return urls
+    .map(url => {
+      if (url.startsWith('data:') || url.startsWith('blob:')) return `${url.length}:${url.slice(32, 96)}`
+      let plain = url
+      try {
+        plain = decodeURIComponent(url)
+      } catch {
+        // 解不开就按原样比
+      }
+      return plain.replace(/[?&](t|s)=[^&]*/g, '')
+    })
+    .join('|')
+}
+
+/** 256 封面：插件会把位图两次塞进 MediaSession metadata，太大会撞 Binder 事务上限 */
+const NOTIFICATION_COVER = 256
+
+/** data: / blob: 图片缩成 256 的 JPEG 再给原生：原图可能好几 MB */
+function shrinkInline(url: string): Promise<string | null> {
+  return new Promise(resolve => {
+    const img = new Image()
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = NOTIFICATION_COVER
+        canvas.height = NOTIFICATION_COVER
+        const ctx = canvas.getContext('2d')
+        if (!ctx || !img.naturalWidth) return resolve(null)
+        const scale = Math.max(NOTIFICATION_COVER / img.naturalWidth, NOTIFICATION_COVER / img.naturalHeight)
+        const w = img.naturalWidth * scale
+        const h = img.naturalHeight * scale
+        ctx.drawImage(img, (NOTIFICATION_COVER - w) / 2, (NOTIFICATION_COVER - h) / 2, w, h)
+        resolve(canvas.toDataURL('image/jpeg', 0.86))
+      } catch {
+        resolve(null)
+      }
+    }
+    img.onerror = () => resolve(null)
+    img.src = url
+  })
+}
+
+/** 按播放条的顺序挑第一张能用的：网络地址交给原生去下，页面里的图先缩小 */
+async function notificationCover(urls: string[]): Promise<string> {
+  for (const url of urls) {
+    if (/^https?:\/\//i.test(url)) return url
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+      const small = await shrinkInline(url)
+      if (small) return small
+    }
+  }
+  return ''
+}
+
 /** 上一首：播放超过 3 秒重播当前歌曲（与 PlayerBar 行为一致） */
 function prevWithRestart() {
   const state = usePlayerStore.getState()
@@ -42,6 +104,21 @@ function prevWithRestart() {
 }
 
 export function useNativeMediaControls() {
+  /*
+   * 通知栏 / 锁屏的封面和播放条用同一套来源：钉住的图、服务器封面、自定义封面接口。
+   * 以前只认服务器的 coverArt，服务器没给封面的歌（播放条靠自定义接口补上的）通知栏就是空的。
+   */
+  const currentSong = usePlayerStore(s => s.currentSong)
+  const { urls } = usePlaybackCover(currentSong, { size: NOTIFICATION_COVER })
+  const coverRef = useRef<{ song: string | null; urls: string[] }>({ song: null, urls: [] })
+  coverRef.current = { song: songKey(currentSong), urls }
+  const coverKey = `${songKey(currentSong)}|${coversIdentity(urls)}`
+  const refreshCoverRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    refreshCoverRef.current?.()
+  }, [coverKey])
+
   useEffect(() => {
     if (!isNativePlatform) return
 
@@ -58,7 +135,18 @@ export function useNativeMediaControls() {
     let creatingFor: string | null = null
     let recreatePending = false
     let retryAt = 0
-    const keyOf = (song: { serverId?: string; id: string } | null) => (song ? `${song.serverId ?? ''}:${song.id}` : null)
+    const keyOf = songKey
+    /** 当前通知用的是哪一首、哪一组封面；自定义封面晚到时要补建一次 */
+    let builtCovers: string | null = null
+    let coverPending = false
+
+    /** 这一首在 React 那边已经算好的封面；刚换歌时它还是上一首的，先退回服务器封面 */
+    const coversFor = (song: NonNullable<ReturnType<typeof usePlayerStore.getState>['currentSong']>) => {
+      const known = coverRef.current
+      if (known.song === keyOf(song)) return known.urls
+      const server = song.coverArt ? findAdapterFor(song.serverId)?.getCoverUrl(song.coverArt, NOTIFICATION_COVER) : undefined
+      return server ? [server] : []
+    }
 
     const createForCurrentSong = () => {
       const { currentSong, isPlaying, currentTime } = usePlayerStore.getState()
@@ -70,12 +158,9 @@ export function useNativeMediaControls() {
       if (!created && Date.now() < retryAt) return
       creating = true
       creatingFor = keyOf(currentSong)
-      // 256 封面：插件会把 bitmap 两次塞进 MediaSession metadata，
-      // 512 位图接近 Binder 事务上限（TransactionTooLargeException 闪退）
-      const cover = currentSong.coverArt
-        ? (findAdapterFor(currentSong.serverId)?.getCoverUrl(currentSong.coverArt, 256) ?? '')
-        : ''
-      CapacitorMusicControls.create({
+      const covers = coversFor(currentSong)
+      const coversId = `${creatingFor}|${coversIdentity(covers)}`
+      void notificationCover(covers).then(cover => CapacitorMusicControls.create({
         track: currentSong.title,
         artist: currentSong.artist,
         album: currentSong.album ?? '',
@@ -98,10 +183,11 @@ export function useNativeMediaControls() {
         nextIcon: '',
         closeIcon: '',
         notificationIcon: '',
-      }).then(() => {
+      })).then(() => {
         created = true
         retryAt = 0
         lastElapsedPush = Date.now()
+        builtCovers = coversId
       }).catch(() => {
         // 建失败了：锁屏上可能还挂着上一首，标成没建好，10 秒后再试
         created = false
@@ -115,8 +201,9 @@ export function useNativeMediaControls() {
           destroyControls()
           return
         }
-        if (recreatePending) {
+        if (recreatePending || coverPending) {
           recreatePending = false
+          coverPending = false
           createForCurrentSong()
           return
         }
@@ -128,7 +215,21 @@ export function useNativeMediaControls() {
       })
     }
 
+    /** 封面（自定义接口那张常常晚到）变了：同一首歌重建一次通知，换上新封面 */
+    refreshCoverRef.current = () => {
+      const song = usePlayerStore.getState().currentSong
+      if (!song) return
+      const wanted = `${keyOf(song)}|${coversIdentity(coversFor(song))}`
+      if (wanted === builtCovers) return
+      if (creating) {
+        coverPending = true
+        return
+      }
+      if (created) createForCurrentSong()
+    }
+
     const destroyControls = () => {
+      builtCovers = null
       if (!created) return
       CapacitorMusicControls.destroy()
       created = false
@@ -244,6 +345,7 @@ export function useNativeMediaControls() {
     return () => {
       unsubscribe()
       cleanups.forEach(fn => fn())
+      refreshCoverRef.current = null
       destroyControls()
     }
   }, [])
