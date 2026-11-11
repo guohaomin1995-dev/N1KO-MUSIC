@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(WebDavPlugin.class);
+        CoverCache.init(getCacheDir());
         try {
             WebDavProxy.ensureStarted();
         } catch (IOException ignored) {

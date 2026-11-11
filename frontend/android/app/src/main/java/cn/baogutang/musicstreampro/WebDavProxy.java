@@ -102,6 +102,14 @@ final class WebDavProxy {
                 writeStatus(socket, 403, "text/plain", "Forbidden", null, null);
                 return;
             }
+            // 封面先查本机缓存：命中就不出网；不适合缓存的（出错、不是图片）照旧转发
+            if (range == null && CoverCache.handles(target)) {
+                byte[] image = CoverCache.get(target);
+                if (image != null) {
+                    writeImage(socket, method, image);
+                    return;
+                }
+            }
             upstream = WebDavAuth.allows(target)
                 ? WebDavAuth.openAuthorized(target, range)
                 : WebDavAuth.openDirect(target, range);
@@ -143,6 +151,21 @@ final class WebDavProxy {
             } catch (IOException ignored) {
             }
         }
+    }
+
+    /** 缓存里的封面：一次写完，带长期缓存头（地址里已经带了图的 id 和尺寸，内容不会变） */
+    private static void writeImage(Socket socket, String method, byte[] image) throws IOException {
+        OutputStream out = new BufferedOutputStream(socket.getOutputStream());
+        StringBuilder head = new StringBuilder();
+        head.append("HTTP/1.1 200 OK\r\n");
+        head.append("Content-Type: ").append(CoverCache.mimeOf(image)).append("\r\n");
+        head.append("Content-Length: ").append(image.length).append("\r\n");
+        head.append("Cache-Control: public, max-age=31536000, immutable\r\n");
+        head.append("Access-Control-Allow-Origin: *\r\n");
+        head.append("Connection: close\r\n\r\n");
+        out.write(head.toString().getBytes(StandardCharsets.ISO_8859_1));
+        if (!"HEAD".equalsIgnoreCase(method)) out.write(image);
+        out.flush();
     }
 
     private static void writeStatus(Socket socket, int status, String mime, String reason, String length, String contentRange) throws IOException {
