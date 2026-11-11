@@ -58,13 +58,18 @@ describe('README 能力表 ⊆ manifest（6.5）', () => {
     }
   })
 
-  it('QQ 音乐两表不写 manifest 未声明的能力（如 favorites）', () => {
+  it('QQ 音乐两表内每项能力都有 manifest 声明', () => {
     const cn = readFileSync(resolve(repoRoot, 'README_CN.md'), 'utf8')
     const en = readFileSync(resolve(repoRoot, 'README.md'), 'utf8')
     const qqRows = [...tableRows(cn, 'QQ 音乐'), ...tableRows(en, 'QQ Music')]
     expect(qqRows.length).toBeGreaterThan(0)
-    expect(manifestCaps('qqmusic')).not.toContain('favorites')
-    // 表里若有「收藏/favourites」字样即失败（1.10 修正后已删）
-    expect(qqRows.some(r => r.includes('收藏') || r.includes('favourites'))).toBe(false)
+    const caps = manifestCaps('qqmusic')
+    for (const [word, cap] of Object.entries(README_CAP_TO_MANIFEST)) {
+      if (qqRows.some(r => r.includes(word))) {
+        expect(caps, `README 写了「${word}」（${cap}）但 qqmusic manifest 未声明`).toContain(cap)
+      }
+    }
+    // 1.10 时 QQ 还没有收藏，表里写了就是死入口；0.1.18 起实现了「我喜欢」歌单的读写
+    expect(caps).toContain('favorites')
   })
 })

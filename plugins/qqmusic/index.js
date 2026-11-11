@@ -273,9 +273,9 @@ async function ensureFreshCredentials() {
    歌曲列表，推荐里出现一位歌手名、0:00、点了放不出声。
    现在只做两件确定的事：认已知的列表键、拆已知的包装层；再按**歌曲的形状**
    （有标题且有时长/文件信息）校验，猜不出来就明说，不往队列里塞可疑条目。 */
-var SONG_LIST_KEYS = ['tracks', 'v_song', 'songs', 'track_list', 'songlist', 'v_track', 'list']
+var SONG_LIST_KEYS = ['tracks', 'v_song', 'songs', 'track_list', 'songlist', 'v_track', 'list', 'VecSongs', 'vecSongs']
 /** QQ 常见的包装层：真正的歌曲挂在这些键上 */
-var TRACK_WRAPPER_KEYS = ['track_info', 'trackInfo', 'songInfo', 'musicData', 'song_info']
+var TRACK_WRAPPER_KEYS = ['track_info', 'trackInfo', 'songInfo', 'musicData', 'song_info', 'Track', 'track', 'SongInfo']
 
 function unwrapTrack(entry) {
   if (!entry || typeof entry !== 'object') return null
@@ -323,6 +323,183 @@ async function fetchRadarSongs() {
     throw pluginError('unknown', 'QQ 雷达推荐没有可识别的曲目列表（响应字段：' + keys + '）')
   }
   return list.map(mapSong)
+}
+
+/* ============================================================
+ * 收藏（「我喜欢」歌单）
+ *
+ * QQ 的红心就是账号下一个特殊歌单：dirId 固定 201，在 GetPlaylistByUin 的列表里
+ * 也有一个普通的 tid。读用 tid 走 CgiGetDiss（和读普通歌单同一个接口），
+ * 写用 dirId 走 PlaylistDetailWrite.AddSonglist / DelSonglist（上游 QQMusicApi
+ * songlist.add_songs / del_songs 同款），歌曲要数字 songId，不是 mid。
+ * ============================================================ */
+
+var LIKED_DIR_ID = 201
+var likedSheetCache = { key: '', tid: '' }
+
+/** 「我喜欢」歌单的 tid（读歌曲用） */
+async function likedSheetTid() {
+  var cred = requireLogin()
+  var key = String(cred.str_musicid || cred.musicid || '')
+  if (likedSheetCache.key === key && likedSheetCache.tid) return likedSheetCache.tid
+  var data = await cgi('music.musicasset.PlaylistBaseRead', 'GetPlaylistByUin', { uin: cred.str_musicid })
+  var list = (data && data.v_playlist) || []
+  var liked = list.find(function (p) { return Number(p.dirId !== undefined ? p.dirId : p.dirid) === LIKED_DIR_ID })
+    || list.find(function (p) { return (p.dirName || p.dissname || p.title) === '我喜欢' })
+  if (!liked) throw pluginError('not-found', '找不到「我喜欢」歌单')
+  likedSheetCache = { key: key, tid: String(liked.tid !== undefined ? liked.tid : (liked.dissid !== undefined ? liked.dissid : liked.id)) }
+  return likedSheetCache.tid
+}
+
+/** 按 mid 查数字 songId / songType（宿主手里的歌曲条目不一定带着，比如重启后恢复的当前曲） */
+async function songIdentity(musicItem) {
+  if (musicItem && musicItem._songId) {
+    return { id: Number(musicItem._songId), type: Number(musicItem._songType || 0) }
+  }
+  var mid = musicItem && musicItem.id
+  if (!mid) throw pluginError('not-found', '缺少歌曲 mid')
+  var data = await cgi('music.trackInfo.UniformRuleCtrl', 'CgiGetTrackInfo', {
+    types: [0],
+    modify_stamp: [0],
+    ctx: 0,
+    client: 1,
+    mids: [String(mid)],
+  })
+  var track = data && Array.isArray(data.tracks) ? data.tracks[0] : null
+  if (!track || track.id === undefined) throw pluginError('not-found', '查不到这首歌的 songId')
+  return { id: Number(track.id), type: typeof track.type === 'number' ? track.type : 0 }
+}
+
+/*
+ * 写接口的客户端身份。
+ *
+ * 读接口（歌单、搜索）用网页版 comm（凭据塞在 comm.qq / authst）就能过；
+ * 歌单写接口（AddSonglist / DelSonglist）在这套身份下回 80105。上游 QQMusicApi
+ * 的默认平台是安卓客户端，网页版时凭据走 Cookie（uin / qqmusic_key / qm_keyst）。
+ * 两种都试：先网页版 + Cookie，不行再安卓；成功的那种记下来，下次直接用。
+ * 80105 是直接拒绝，不会改动账号，换一种身份重试是安全的。
+ */
+var WRITE_VARIANTS = ['web-cookie', 'android']
+var WRITE_REJECTED = 80105
+
+async function writeComm(variant, cred) {
+  var uin = String((cred && (cred.str_musicid || cred.musicid)) || '0')
+  if (variant === 'android') {
+    var guid = await ensureGuid(env)
+    return {
+      ct: '11',
+      cv: '20090008',
+      v: '20090008',
+      chid: '10003505',
+      qq: uin,
+      authst: String(cred.musickey || ''),
+      tmeAppID: 'qqmusic',
+      tmeLoginType: String(Number(cred.loginType || 2)),
+      OpenUDID: guid,
+      udid: guid,
+      format: 'json',
+      inCharset: 'utf-8',
+      outCharset: 'utf-8',
+    }
+  }
+  return buildComm(cred)
+}
+
+async function cgiWriteOnce(variant, module, method, param) {
+  await ensureFreshCredentials()
+  var cred = currentCredentials()
+  var comm = await writeComm(variant, cred)
+  var uin = String((cred && (cred.str_musicid || cred.musicid)) || '0')
+  var headers = variant === 'android'
+    ? { 'Content-Type': 'application/json', 'User-Agent': 'QQMusic 20090008(android 13)' }
+    : {
+        'Content-Type': 'application/json',
+        Referer: REFERER,
+        'User-Agent': UA,
+        Origin: REFERER.slice(0, -1),
+        Cookie: cookieHeader({
+          uin: uin,
+          qqmusic_uin: uin,
+          qm_keyst: String(cred.musickey || ''),
+          qqmusic_key: String(cred.musickey || ''),
+          tmeLoginType: String(Number(cred.loginType || 2)),
+        }),
+      }
+  var res = await httpPost(MUSICU_URL, { comm: comm, req_0: { module: module, method: method, param: param } }, {
+    headers: headers,
+    responseType: 'json',
+  })
+  var body = res.data || {}
+  var req0 = body.req_0 || {}
+  if (req0.code !== 0) {
+    var raw = req0.message || req0.msg || req0.tip || ''
+    var err = pluginError(
+      CGI_ERROR_CODE[req0.code] || 'unknown',
+      'CGI ' + module + '.' + method + ' code ' + req0.code + (raw ? '：' + raw : '')
+    )
+    err.cgiCode = req0.code
+    throw err
+  }
+  return req0.data
+}
+
+/** 写接口：按记住的身份发；被 80105 拒了就换下一种 */
+async function cgiWrite(module, method, param) {
+  var remembered = await env.storage.get('write-variant')
+  var order = remembered ? [remembered].concat(WRITE_VARIANTS.filter(function (v) { return v !== remembered })) : WRITE_VARIANTS
+  var lastErr = null
+  for (var i = 0; i < order.length; i++) {
+    try {
+      var data = await cgiWriteOnce(order[i], module, method, param)
+      if (order[i] !== remembered) await env.storage.set('write-variant', order[i])
+      return data
+    } catch (err) {
+      if (!err || err.cgiCode !== WRITE_REJECTED) throw err
+      lastErr = err
+    }
+  }
+  throw lastErr
+}
+
+/** 读接口给的歌曲类型 → 歌单写接口用的类型（上游 utils/common.py to_songlist_write_type） */
+function songlistWriteType(songType) {
+  var t = Number(songType || 0)
+  if (t === 0 || t === 1) return 0
+  if (t === 5 || t === 111 || t === 112 || t === 113) return t
+  return 1
+}
+
+async function setFavoriteImpl(musicItem, liked) {
+  requireLogin()
+  if (!musicItem || !musicItem.id || musicItem.name) {
+    throw pluginError('unsupported', 'QQ 音乐收藏只支持歌曲')
+  }
+  var song = await songIdentity(musicItem)
+  /* 参数形状照上游 songlist._build_songlist_oper_param：少了 tid / bFmtUtf8、
+     或者类型没转换，服务端回 80105 */
+  var data
+  try {
+    data = await cgiWrite('music.musicasset.PlaylistDetailWrite', liked ? 'AddSonglist' : 'DelSonglist', {
+      dirId: LIKED_DIR_ID,
+      tid: 0,
+      bFmtUtf8: true,
+      v_songInfo: [{ songId: song.id, songType: songlistWriteType(song.type) }],
+    })
+  } catch (err) {
+    /* 80092：已经在（或已经不在）「我喜欢」里，结果和想要的一样 */
+    if (err && /code 80092\b/.test(String(err.message))) return
+    throw err
+  }
+  if (data && data.retCode !== undefined && data.retCode !== 0) {
+    throw pluginError('unknown', 'QQ 音乐收藏失败（retCode ' + data.retCode + '）')
+  }
+}
+
+async function getFavoritesPage(page) {
+  var tid = await likedSheetTid()
+  // 不能用 this：沙箱是非绑定调用（见 plugins/test/sandbox-call.test.mjs）
+  var sheet = await module.exports.getMusicSheetInfo({ id: tid, title: '我喜欢' }, page || 1)
+  return { data: sheet.musicList, isEnd: sheet.isEnd }
 }
 
 /* ============================================================
@@ -763,6 +940,9 @@ function mapSong(raw) {
     /* isrc 不给：协议要求字符串，而这些接口本来就不回 ISRC，
        给个数组只会让跨源同曲匹配拿到坏形状 */
     _mediaMid: file.media_mid || raw.mid,
+    /* 收藏 / 加歌这类写接口要的是数字 songId 和 songType，不是 mid */
+    _songId: raw.id !== undefined ? String(raw.id) : (raw.songid !== undefined ? String(raw.songid) : undefined),
+    _songType: typeof raw.type === 'number' ? raw.type : 0,
   }
 }
 
@@ -1470,6 +1650,10 @@ module.exports = {
       getUser() { return module.exports.user.getUser() },
       /** 雷达推荐（宿主首页「今日推荐」合并区；未登录抛 unauthorized 由宿主降级为空） */
       getRecommendSongs() { return fetchRadarSongs() },
+      /** 收藏列表（「我喜欢」歌单），每页 100 首 */
+      getFavorites(page) { return getFavoritesPage(page) },
+      /** 收藏 / 取消收藏一首歌 */
+      setFavorite(musicItem, liked) { return setFavoriteImpl(musicItem, liked) },
     },
     getMediaSource(item, quality) { return module.exports.getMediaSource(item, quality) },
   },
