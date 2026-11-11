@@ -152,3 +152,22 @@ test('写接口：两种身份都被 80105 拒，报错给宿主', async () => {
     /80105/
   )
 })
+
+test('搜歌手：singer 分节为空时从顶上的直达卡片取歌手', async () => {
+  stub({
+    'music.adaptor.SearchAdaptor.do_search_v2': { code: 0, data: { meta: { nextpage: -1 }, body: {
+      singer: { extra_info: {}, jump_pos: 5 },
+      direct_result: { items: [
+        { id: '4558', title: '周杰伦', type: 1, pic: 'http://y.gtimg.cn/music/photo_new/T001R150x150M0000025NhlN2yWrP4_11.jpg',
+          custom_info: { from: 'singer', mid: '0025NhlN2yWrP4', song_num: '1013' } },
+        { id: '9', title: '某张专辑', type: 2, custom_info: { from: 'album', mid: 'x' } },
+      ] },
+    } } },
+  })
+  const { plugin } = await loadPlugin('plugins/qqmusic', CRED)
+  const res = await plugin.search('周杰伦', 1, 'artist')
+  assert.equal(res.data.length, 1)
+  assert.equal(res.data[0].id, '0025NhlN2yWrP4')
+  assert.equal(res.data[0].name, '周杰伦')
+  assert.match(res.data[0].avatar, /^https:\/\/.*T001R300x300/)
+})

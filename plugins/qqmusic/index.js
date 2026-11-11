@@ -959,6 +959,26 @@ function mapAlbum(raw) {
   }
 }
 
+/** 搜索结果顶上的直达卡片是不是一位歌手 */
+function isSingerCard(item) {
+  var info = (item && item.custom_info) || {}
+  return info.from === 'singer' && !!info.mid
+}
+
+/** 直达卡片 → 歌手条目。头像给的是 150px 的 http 地址：换成 300px、https */
+function mapSingerCard(item) {
+  var info = item.custom_info || {}
+  var pic = String(item.pic || '')
+    .replace(/^http:\/\//, 'https://')
+    .replace('T001R150x150', 'T001R300x300')
+  return {
+    id: String(info.mid),
+    name: item.title || '',
+    avatar: pic || 'https://y.qq.com/music/photo_new/T001R300x300M000' + info.mid + '.jpg',
+    worksNum: info.song_num !== undefined ? Number(info.song_num) : undefined,
+  }
+}
+
 function mapSinger(raw) {
   return {
     id: raw.mid,
@@ -1329,7 +1349,22 @@ module.exports = {
     rememberSearchId(cacheKey, meta.searchid || searchId)
     var isEnd = meta.nextpage === undefined ? true : meta.nextpage === -1
     if (type === 'album') return { data: sectionItems(body.item_album).map(mapAlbum), isEnd: isEnd }
-    if (type === 'artist') return { data: sectionItems(body.singer).map(mapSinger), isEnd: isEnd }
+    if (type === 'artist') {
+      /*
+       * 歌手现在常常不在 singer 分节里：搜「周杰伦」时 singer 只剩元信息，
+       * 歌手本人被放进了顶上的「直达」卡片（direct_result.items，custom_info.from = singer）。
+       * 两处都取，按 mid 去重；直达的排前面（那就是搜索词对应的那位）。
+       */
+      var direct = sectionItems(body.direct_result).filter(isSingerCard).map(mapSingerCard)
+      var listed = sectionItems(body.singer).map(mapSinger)
+      var seenMid = {}
+      var artists = direct.concat(listed).filter(function (a) {
+        if (!a.id || seenMid[a.id]) return false
+        seenMid[a.id] = true
+        return true
+      })
+      return { data: artists, isEnd: isEnd }
+    }
     if (type === 'sheet') return { data: sectionItems(body.item_songlist).map(mapSheet), isEnd: isEnd }
     return { data: sectionItems(body.item_song).map(mapSong), isEnd: isEnd }
   },

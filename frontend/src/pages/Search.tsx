@@ -430,16 +430,33 @@ export default function SearchPage() {
       [...items].sort((a, b) => rank(a.serverId) - rank(b.serverId))
   }, [priorityOrder])
 
+  /*
+   * 歌手**不跨源合并**：同名歌曲在几家确实是同一首，但同名歌手的歌手页完全不是一回事——
+   * NAS 上只有你自己存的那几首，QQ / 网易云上是完整作品集。按名字合并等于把另外几家的
+   * 歌手页藏了起来（搜「周杰伦」只剩 NAS 那一个）。每家各留一个，卡片上带来源图标；
+   * 只有同一家里的同名条目才合掉。
+   * 排序：名字与搜索词完全一致的排最前（各家的「周杰伦」挨在一起，按播放优先序），
+   * 以它开头的其次，只是包含的再往后——粉丝号「周杰伦♚」之类别挤在 QQ 的正主前面。
+   */
   const mergedArtists = useMemo(() => {
     const seen = new Set<string>()
+    const q = normalizeText(debouncedQuery)
+    const relevance = (name: string) => {
+      const n = normalizeText(name)
+      if (!q) return 0
+      return n === q ? 0 : n.startsWith(q) ? 1 : n.includes(q) ? 2 : 3
+    }
     return byPriority(accMeta.artists.filter(a => caps[a.serverId]?.artist))
       .filter(a => {
-        const key = normalizeText(a.name)
+        const key = `${a.serverId}|${normalizeText(a.name)}`
         if (seen.has(key)) return false
         seen.add(key)
         return true
       })
-  }, [accMeta.artists, caps, byPriority])
+      .map((artist, index) => ({ artist, index, rank: relevance(artist.name) }))
+      .sort((a, b) => a.rank - b.rank || a.index - b.index)
+      .map(entry => entry.artist)
+  }, [accMeta.artists, caps, byPriority, debouncedQuery])
 
   const mergedAlbums = useMemo(() => {
     const seen = new Set<string>()
