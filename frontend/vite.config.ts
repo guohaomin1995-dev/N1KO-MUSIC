@@ -317,8 +317,12 @@ function n1koPluginCatalogMiddleware(): Plugin {
  *
  * 只打目录里列出的条目（Mock 等开发夹具不在目录里，自然不进包）；
  * 目录或某个插件文件缺失时直接让构建失败——静默少打一个音源比构建红更糟。
+ *
+ * 原生壳（--mode capacitor）打进 n1ko-plugins/ 而不是 plugins/：`cap sync` 拷网页资源时
+ * 会把 public/plugins 整个删掉重建（那是它给 Cordova 插件 JS 留的目录），
+ * 安卓 / iOS 包里于是一个内置音源都没有。前端的同名常量见 pluginStore 的 bundledPluginsDir。
  */
-function n1koBundlePlugins(): Plugin {
+function n1koBundlePlugins(outDir: string): Plugin {
   const pluginsRoot = path.resolve(__dirname, '../plugins')
   return {
     name: 'n1ko-bundle-plugins',
@@ -327,7 +331,7 @@ function n1koBundlePlugins(): Plugin {
       const catalogPath = path.join(pluginsRoot, 'catalog.json')
       const catalogText = fs.readFileSync(catalogPath, 'utf-8')
       const catalog = JSON.parse(catalogText) as Array<{ id: string; manifest: string }>
-      this.emitFile({ type: 'asset', fileName: 'plugins/catalog.json', source: catalogText })
+      this.emitFile({ type: 'asset', fileName: `${outDir}/catalog.json`, source: catalogText })
       for (const entry of catalog) {
         const manifestRel = entry.manifest.replace(/^\/+/, '')
         const manifestPath = path.resolve(pluginsRoot, manifestRel)
@@ -340,7 +344,7 @@ function n1koBundlePlugins(): Plugin {
         if (!codePath.startsWith(pluginsRoot + path.sep)) {
           throw new Error(`插件 ${entry.id} 的 entry 越出 plugins/：${manifest.entry}`)
         }
-        const toBundlePath = (abs: string) => 'plugins/' + path.relative(pluginsRoot, abs).split(path.sep).join('/')
+        const toBundlePath = (abs: string) => `${outDir}/` + path.relative(pluginsRoot, abs).split(path.sep).join('/')
         this.emitFile({ type: 'asset', fileName: toBundlePath(manifestPath), source: manifestText })
         this.emitFile({ type: 'asset', fileName: toBundlePath(codePath), source: fs.readFileSync(codePath, 'utf-8') })
       }
@@ -354,7 +358,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     n1koPluginProxyMiddleware(),
     n1koPluginCatalogMiddleware(),
-    n1koBundlePlugins(),
+    n1koBundlePlugins(mode === 'capacitor' ? 'n1ko-plugins' : 'plugins'),
     // Capacitor 原生壳内禁用 PWA/Service Worker（WebView 内 SW 缓存会导致资源陈旧）
     ...(mode === 'capacitor'
       ? []

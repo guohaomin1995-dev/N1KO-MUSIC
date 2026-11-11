@@ -38,7 +38,19 @@ const CATALOG_URL_META_KEY = 'catalog-url'
 const BUILTIN_SEEDED_META_KEY = 'builtin-seeded'
 const BUILTIN_PLUGIN_IDS = ['netease', 'qqmusic']
 
-/** 开发态默认目录由 Vite 中间件供给；正式版默认空（用户自填） */
+/**
+ * 随包插件所在的目录名，和 vite.config.ts 的 n1koBundlePlugins 一致。
+ * 原生壳里不能叫 plugins：`cap sync` 会把 public/plugins 删掉（留给 Cordova 插件 JS），
+ * 安卓 / iOS 包里出厂目录就是 404。桌面版和网页版保持 plugins/，已装的内置音源才认得出是出厂的。
+ * 每次调用时读 MODE，测试里可以切换。
+ */
+function bundledPluginsDir(): string {
+  return import.meta.env.MODE === 'capacitor' ? 'n1ko-plugins' : 'plugins'
+}
+
+/** 原生壳旧版本用过、但包里实际不存在的出厂目录地址 */
+const LEGACY_NATIVE_CATALOG = '/plugins/catalog.json'
+
 /**
  * 出厂插件目录。
  *
@@ -52,7 +64,33 @@ function defaultCatalogUrl(): string {
   if (import.meta.env.DEV) return '/__n1ko_plugins/catalog.json'
   const override = import.meta.env.VITE_PLUGIN_CATALOG_URL as string | undefined
   if (override) return override
-  return '/plugins/catalog.json'
+  return `/${bundledPluginsDir()}/catalog.json`
+}
+
+/** 原生壳里存下来的旧出厂地址（包里没有这份目录）：当作没设置，退回现在的出厂目录 */
+function usableSavedCatalog(saved: string | undefined): string | undefined {
+  if (!saved) return undefined
+  if (import.meta.env.MODE !== 'capacitor') return saved
+  try {
+    const base = typeof location !== 'undefined' ? location.href : 'https://localhost/'
+    if (new URL(saved, base).href === new URL(LEGACY_NATIVE_CATALOG, base).href) return undefined
+  } catch {
+    return saved
+  }
+  return saved
+}
+
+/**
+ * 内置音源是不是已经种过。
+ *
+ * 新标记只在真装上至少一个内置音源后才写（值是装上的 id 列表）。旧版本不管装没装上都会写一个时间戳：
+ * 原生壳里出厂目录一直是 404，于是标记写上了、一个音源都没有，而且再也不重试。
+ * 所以原生壳里「旧时间戳标记 + 一个插件都没有」算没种过；桌面版上那多半是用户自己卸载的，照旧尊重。
+ */
+function builtinsAlreadySeeded(flag: unknown, installedCount: number): boolean {
+  if (flag === undefined || flag === null) return false
+  if (typeof flag === 'number' && installedCount === 0 && import.meta.env.MODE === 'capacitor') return false
+  return true
 }
 
 /**
@@ -173,15 +211,15 @@ export const usePluginStore = create<PluginStoreState>()((set, get) => ({
   load: async () => {
     const stored = await readAllPlugins()
     const savedUrl = (await readMeta(CATALOG_URL_META_KEY)) as string | undefined
-    const seeded = await readMeta(BUILTIN_SEEDED_META_KEY)
+    const seeded = builtinsAlreadySeeded(await readMeta(BUILTIN_SEEDED_META_KEY), stored.length)
     set({
       plugins: stored.map(toSummary),
-      catalogUrl: savedUrl ?? defaultCatalogUrl(),
+      catalogUrl: usableSavedCatalog(savedUrl) ?? defaultCatalogUrl(),
       loaded: true,
     })
-    /* 首启内置：网易云 / QQ 自动安装（一次性标记，卸载不复活）。
-       出厂目录不可达（离线首启）时单项失败不阻塞，下次启动不再种——
-       用户可在音源设置里手动从目录安装。 */
+    /* 首启内置：网易云 / QQ 自动安装（装上之后记标记，卸载不复活）。
+       出厂目录不可达（离线首启）时一个都没装上，不记标记，下次启动再试；
+       单项失败不阻塞另一项。 */
     /* 纯浏览器正式版没有出网通道（见 pluginSourcesSupported）：不种、不更，
        否则用户会看到两个登录后只会报网络错误的音源 */
     if (!pluginSourcesSupported) return
@@ -191,8 +229,12 @@ export const usePluginStore = create<PluginStoreState>()((set, get) => ({
     }
     /* 内置音源自动更新：官方一等音源不该要求用户去找更新入口
        （设置页在登录墙后面，首启未连服时根本进不去）。
-       hosts 有新增时跳过，留给手动更新走确认流程（PROTOCOL §9）。 */
-    void get().autoUpdateBuiltins()
+       hosts 有新增时跳过，留给手动更新走确认流程（PROTOCOL §9）。
+       随包目录就在安装包里，读它几乎不花时间：等它更新完再返回。启动时调用方是先 load()
+       再连音源的，不等的话沙箱会先拿旧代码起来，直到下次启动才换成新版——
+       升级 App 修好的插件问题，用户要重启两次才吃得到。远端目录照旧放后台，不拖慢启动。 */
+    if (isBundledCatalog(get().catalogUrl)) await get().autoUpdateBuiltins()
+    else void get().autoUpdateBuiltins()
   },
 
   autoUpdateBuiltins: async () => {
@@ -250,14 +292,17 @@ export const usePluginStore = create<PluginStoreState>()((set, get) => ({
     const { catalogUrl, installFromCatalog } = get()
     const url = catalogUrl || defaultCatalogUrl()
     if (!url) return
+    const installed: string[] = []
     for (const id of BUILTIN_PLUGIN_IDS) {
       try {
-        await installFromCatalog(id)
+        const result = await installFromCatalog(id)
+        if (result.ok) installed.push(id)
       } catch {
         /* 目录不可达或单项失败不阻塞其他项 */
       }
     }
-    await writeMeta(BUILTIN_SEEDED_META_KEY, Date.now())
+    /* 一个都没装上（离线、目录不可达）就不记标记，下次启动再试 */
+    if (installed.length) await writeMeta(BUILTIN_SEEDED_META_KEY, { ids: installed, at: Date.now() })
   },
 
   getInstalled: (id) => readPlugin(id),

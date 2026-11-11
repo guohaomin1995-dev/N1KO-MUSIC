@@ -6,7 +6,7 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePluginStore } from './pluginStore'
-import { resetPluginDbForTests } from './pluginStorage'
+import { readMeta, resetPluginDbForTests, writeMeta } from './pluginStorage'
 import type { PluginManifest } from '../types'
 
 function makeManifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
@@ -295,5 +295,57 @@ describe('内置音源静默更新只认出厂目录', () => {
     await STORE().setCatalogUrl(OTHER)
     await STORE().autoUpdateBuiltins()
     expect(STORE().plugins[0].version).toBe('0.1.0')
+  })
+})
+
+describe('内置音源首装（网易云 / QQ）', () => {
+  const CATALOG = 'http://localhost:5173/__n1ko_plugins/catalog.json'
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('一个都没装上（目录 404）时不记标记，下次启动还会再试', async () => {
+    stubFetch({})
+    await STORE().setCatalogUrl(CATALOG)
+    await STORE().seedBuiltins()
+    expect(await readMeta('builtin-seeded')).toBeUndefined()
+  })
+
+  it('装上了才记标记，记下装上的是哪几个', async () => {
+    stubFetch({
+      [CATALOG]: [{ id: 'netease', name: '网易云音乐', version: '0.1.0', manifest: 'netease/manifest.json' }],
+      'http://localhost:5173/__n1ko_plugins/netease/manifest.json': makeManifest({ id: 'netease', name: '网易云音乐', platform: 'netease' }),
+      'http://localhost:5173/__n1ko_plugins/netease/index.js': 'code',
+    })
+    await STORE().setCatalogUrl(CATALOG)
+    await STORE().seedBuiltins()
+    expect(await readMeta('builtin-seeded')).toMatchObject({ ids: ['netease'] })
+    expect(STORE().plugins.map(p => p.id)).toEqual(['netease'])
+  })
+
+  it('原生壳里旧版留下的时间戳标记 + 一个插件都没有：重新种', async () => {
+    vi.stubEnv('MODE', 'capacitor')
+    await writeMeta('builtin-seeded', 1_700_000_000_000)
+    const seed = vi.fn(async () => {})
+    usePluginStore.setState({ seedBuiltins: seed })
+    await STORE().load()
+    expect(seed).toHaveBeenCalledTimes(1)
+  })
+
+  it('桌面版的旧标记照旧尊重（多半是用户自己卸载了）', async () => {
+    await writeMeta('builtin-seeded', 1_700_000_000_000)
+    const seed = vi.fn(async () => {})
+    usePluginStore.setState({ seedBuiltins: seed, autoUpdateBuiltins: vi.fn(async () => {}) })
+    await STORE().load()
+    expect(seed).not.toHaveBeenCalled()
+  })
+
+  it('原生壳里存下的旧出厂地址（包里没有）退回现在的出厂目录', async () => {
+    vi.stubEnv('MODE', 'capacitor')
+    await STORE().setCatalogUrl('/plugins/catalog.json')
+    usePluginStore.setState({ seedBuiltins: vi.fn(async () => {}), autoUpdateBuiltins: vi.fn(async () => {}) })
+    await STORE().load()
+    expect(STORE().catalogUrl).not.toBe('/plugins/catalog.json')
   })
 })
