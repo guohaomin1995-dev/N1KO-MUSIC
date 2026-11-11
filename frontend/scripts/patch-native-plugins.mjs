@@ -27,6 +27,18 @@ const PATCHES = [
       ['coverImage = UIImage(contentsOfFile: fullCoverImagePath)!', 'coverImage = UIImage(contentsOfFile: fullCoverImagePath) '],
     ],
   },
+  /*
+   * 安卓：拔有线耳机时插件会把整个 MediaSession release 掉，之后再插上也不重建。
+   * 更糟的是 HEADSET_PLUG 是粘性广播：每次 create() 重新注册接收器，系统都会立刻补发一次
+   * 「当前没插」（state=0）——有耳机孔的手机上，每换一首歌会话就被自己释放，线控和蓝牙按键全失灵。
+   * 会话不该跟着有线耳机走，这里不再释放。
+   */
+  {
+    file: 'node_modules/capacitor-music-controls-plugin/android/src/main/java/com/ingageco/capacitormusiccontrols/MusicControlsBroadcastReceiver.java',
+    edits: [
+      ['this.musicControls.unregisterMediaButtonEvent();', '/* n1ko patch: keep the media session alive on unplug */'],
+    ],
+  },
 ]
 
 let failed = false

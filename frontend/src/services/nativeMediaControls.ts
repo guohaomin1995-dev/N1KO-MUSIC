@@ -11,8 +11,25 @@ import { CapacitorMusicControls } from 'capacitor-music-controls-plugin'
 import { usePlayerStore } from '@/store/playerStore'
 import { seekHowl } from '@/hooks/useAudioEngine'
 import { findAdapterFor } from '@/api'
-import { isNativePlatform } from '@/lib/platform'
+import { isNativePlatform, nativeOS } from '@/lib/platform'
 import { notePauseReason } from '@/lib/playbackTrail'
+import { useSettingsStore } from '@/store/settingsStore'
+
+/** 原生端报上来的一次按键：message 是按键名，拖动进度时带 position（秒） */
+interface RemoteEvent {
+  message?: string
+  position?: number
+}
+
+function togglePlayRemote() {
+  const s = usePlayerStore.getState()
+  if (s.isPlaying) {
+    notePauseReason('remote', 'toggle')
+    s.pause()
+  } else {
+    s.resume()
+  }
+}
 
 /** 上一首：播放超过 3 秒重播当前歌曲（与 PlayerBar 行为一致） */
 function prevWithRestart() {
@@ -117,38 +134,75 @@ export function useNativeMediaControls() {
       created = false
     }
 
-    // 锁屏/通知事件 → 播放器动作
-    const listeners: Promise<{ remove: () => void }>[] = []
-    const on = (event: string, cb: (info: { position?: number }) => void) => {
-      listeners.push(CapacitorMusicControls.addListener(event, cb))
+    /*
+     * 锁屏 / 通知 / 耳机线控 → 播放器动作。
+     *
+     * 插件不会按 music-controls-play 这样的名字发事件：安卓原生端所有按键都走
+     * bridge.triggerJSEvent('controlsNotification', 'document', { message })，
+     * 落在 document 上的一个 DOM 事件，按键名在 message 里。
+     * 以前按 message 的名字 addListener，一个都收不到——蓝牙耳机、通知栏、锁屏的按键全部石沉大海。
+     */
+    const step = () => useSettingsStore.getState().seekStepSeconds || 15
+    const actions: Record<string, (info: RemoteEvent) => void> = {
+      'music-controls-play': () => usePlayerStore.getState().resume(),
+      'music-controls-pause': () => {
+        notePauseReason('remote', 'pause')
+        usePlayerStore.getState().pause()
+      },
+      'music-controls-stop': () => {
+        notePauseReason('remote', 'stop')
+        usePlayerStore.getState().pause()
+      },
+      'music-controls-toggle-play-pause': togglePlayRemote,
+      // 有线 / 单键耳机的中键；会话不活跃时系统把它交给按键广播，走的是这个名字
+      'music-controls-headset-hook': togglePlayRemote,
+      'music-controls-next': () => usePlayerStore.getState().next(),
+      'music-controls-previous': prevWithRestart,
+      'music-controls-skip-forward': () => {
+        const s = usePlayerStore.getState()
+        seekHowl(Math.min(s.duration || Infinity, s.currentTime + step()))
+      },
+      'music-controls-skip-backward': () => {
+        seekHowl(Math.max(0, usePlayerStore.getState().currentTime - step()))
+      },
+      'music-controls-seek-to': info => {
+        if (typeof info.position === 'number' && isFinite(info.position)) seekHowl(info.position)
+      },
+      // 用户划掉通知 → 暂停，下次状态变化时重建
+      'music-controls-destroy': () => {
+        notePauseReason('remote', 'notification dismissed')
+        usePlayerStore.getState().pause()
+        created = false
+      },
     }
-    on('music-controls-play', () => {
-      const s = usePlayerStore.getState()
-      if (!s.isPlaying) s.togglePlay()
-    })
-    on('music-controls-pause', () => {
-      const s = usePlayerStore.getState()
-      notePauseReason('remote', 'pause')
-      if (s.isPlaying) s.togglePlay()
-    })
-    on('music-controls-toggle-play-pause', () => {
-      notePauseReason('remote', 'toggle')
-      usePlayerStore.getState().togglePlay()
-    })
-    on('music-controls-next', () => usePlayerStore.getState().next())
-    on('music-controls-previous', prevWithRestart)
-    on('music-controls-seek-to', info => {
-      if (typeof info?.position === 'number' && isFinite(info.position)) {
-        seekHowl(info.position)
-      }
-    })
-    // 用户划掉通知 → 暂停并销毁
-    on('music-controls-destroy', () => {
-      const s = usePlayerStore.getState()
-      notePauseReason('remote', 'notification dismissed')
-      if (s.isPlaying) s.togglePlay()
-      created = false
-    })
+    /* 线控一次按下，原生端可能从会话回调和按键广播各报一遍；300ms 内同一个键只认一次 */
+    let lastMessage = ''
+    let lastAt = 0
+    const dispatch = (info: RemoteEvent | null | undefined) => {
+      const message = info?.message
+      if (!message) return
+      const action = actions[message]
+      if (!action) return
+      const now = Date.now()
+      if (message === lastMessage && now - lastAt < 300 && message !== 'music-controls-seek-to') return
+      lastMessage = message
+      lastAt = now
+      action(info)
+    }
+
+    const cleanups: Array<() => void> = []
+    if (nativeOS === 'android') {
+      const onDocumentEvent = (event: Event) => dispatch(event as unknown as RemoteEvent)
+      document.addEventListener('controlsNotification', onDocumentEvent)
+      cleanups.push(() => document.removeEventListener('controlsNotification', onDocumentEvent))
+    } else {
+      // iOS 端走 notifyListeners('controlsNotification')。系统面板那边 WKWebView 的 Media Session 也会接一份，
+      // 这里只照旧挂着，不改 iOS 现有的行为
+      const legacy = Object.keys(actions).map(name =>
+        CapacitorMusicControls.addListener(name, (info: RemoteEvent) => actions[name](info ?? { message: name }))
+      )
+      cleanups.push(() => legacy.forEach(p => p.then(h => h.remove()).catch(() => {})))
+    }
 
     // 状态变化 → 原生控制
     const unsubscribe = usePlayerStore.subscribe((state, prev) => {
@@ -189,7 +243,7 @@ export function useNativeMediaControls() {
 
     return () => {
       unsubscribe()
-      listeners.forEach(p => p.then(h => h.remove()).catch(() => {}))
+      cleanups.forEach(fn => fn())
       destroyControls()
     }
   }, [])
