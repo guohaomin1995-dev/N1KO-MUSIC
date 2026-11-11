@@ -14,7 +14,8 @@ import { useNavigate } from 'react-router-dom'
 import { X } from '@phosphor-icons/react'
 import { usePlayerStore } from '@/store/playerStore'
 import { useThemeStore } from '@/store/themeStore'
-import { useLyricsQuery, useToggleStar } from '@/hooks/useServerQueries'
+import { useLyricsQuery } from '@/hooks/useServerQueries'
+import { useCurrentSongFavorite } from '@/hooks/useFavoriteState'
 import { useSourceCapabilities } from '@/hooks/useSourceQueries'
 import { sourceSupportsFavorites } from '@/services/heartCapability'
 import { findAdapterFor } from '@/api'
@@ -34,9 +35,8 @@ export function NowPlayingPanel() {
   const currentSong = usePlayerStore(s => s.currentSong)
   const setFullscreen = usePlayerStore(s => s.setFullscreen)
   const setQueueOpen = usePlayerStore(s => s.setQueueOpen)
-  const updateCurrentSong = usePlayerStore(s => s.updateCurrentSong)
   const setNowPlayingPanel = useThemeStore(s => s.setNowPlayingPanel)
-  const toggleStar = useToggleStar()
+  const favorite = useCurrentSongFavorite()
   const caps = useSourceCapabilities()
 
   const lyricsQuery = useLyricsQuery(
@@ -121,16 +121,13 @@ export function NowPlayingPanel() {
           </div>
           {canFavorite && (
             <button
-              onClick={() => toggleStar.mutate(
-                { id: currentSong.id, type: 'song', isStarred: !!currentSong.starred, song: currentSong },
-                { onSuccess: () => updateCurrentSong({ starred: !currentSong.starred }) }
-              )}
-              disabled={toggleStar.isPending}
+              onClick={favorite.toggle}
+              disabled={favorite.pending}
               className="press-pop -mt-1 grid h-11 w-11 flex-none place-items-center rounded-pill text-ink-3 hover:bg-ink/[0.06] hover:text-ink aria-pressed:text-ink disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
-              aria-label={t(currentSong.starred ? 'player.unfavorite' : 'player.favorite')}
-              aria-pressed={!!currentSong.starred}
+              aria-label={t(favorite.starred ? 'player.unfavorite' : 'player.favorite')}
+              aria-pressed={favorite.starred}
             >
-              <HeartGlyph on={!!currentSong.starred} size={22} />
+              <HeartGlyph on={favorite.starred} size={22} />
             </button>
           )}
         </div>

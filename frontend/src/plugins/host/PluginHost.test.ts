@@ -247,3 +247,16 @@ describe('init 失败时的回收', () => {
     }
   })
 })
+
+describe('写操作单独退避', () => {
+  it('收藏 / 加歌这类写方法会被识别出来，读方法不会', async () => {
+    const { isWriteMethod } = await import('./PluginHost')
+    expect(isWriteMethod('n1ko.user.setFavorite')).toBe(true)
+    expect(isWriteMethod('n1ko.user.addToPlaylist')).toBe(true)
+    expect(isWriteMethod('n1ko.user.removeFromPlaylist')).toBe(true)
+    expect(isWriteMethod('n1ko.user.createPlaylist')).toBe(true)
+    expect(isWriteMethod('n1ko.user.getPlaylists')).toBe(false)
+    expect(isWriteMethod('getMusicSheetInfo')).toBe(false)
+    expect(isWriteMethod('search')).toBe(false)
+  })
+})

@@ -117,6 +117,19 @@ export const rateBackoffUntil = new Map<string, number>()
 /** PROTOCOL §7 承诺的宿主退避时长 */
 export const RATE_LIMITED_BACKOFF_MS = 60_000
 
+/**
+ * 写操作（收藏、建歌单、加歌 / 删歌）单独记一本退避账。
+ *
+ * 网易云会只对某个账号的写接口（典型是红心 -460）风控，读接口照常。以前任何方法撞上
+ * rate-limited 都让整个音源退避 60 秒：点一下收藏被拦，接下来一分钟连歌单都打不开。
+ * 现在写操作被拦只退避写操作；读操作被拦（整站限流）写操作也一起等。
+ */
+export function isWriteMethod(method: string): boolean {
+  return /^n1ko\.user\.(set|add|remove|create|delete|update)/.test(method)
+}
+
+const writeBackoffKey = (key: string) => `${key}#write`
+
 /** 某个音源当前还剩多少毫秒处于频控退避（0 = 不在退避） */
 export function rateBackoffRemaining(serverId: string | undefined | null): number {
   if (!serverId) return 0
@@ -265,8 +278,12 @@ export class PluginHost {
      * 退避期间不再把请求发进沙箱——网上一刀全是 429 的源，继续打只会
      * 把封禁窗口越打越长。查询层拿到 rate-limited 后会保留已有缓存展示。
      */
-    const backoffKey = this.options.serverId ?? this.manifest.id
-    const remaining = rateBackoffRemaining(backoffKey)
+    const sourceKey = this.options.serverId ?? this.manifest.id
+    const write = isWriteMethod(method)
+    const backoffKey = write ? writeBackoffKey(sourceKey) : sourceKey
+    const remaining = write
+      ? Math.max(rateBackoffRemaining(sourceKey), rateBackoffRemaining(backoffKey))
+      : rateBackoffRemaining(sourceKey)
     if (remaining > 0) {
       throw new PluginCallError('rate-limited', `该音源频控退避中，${Math.ceil(remaining / 1000)} 秒后重试`)
     }

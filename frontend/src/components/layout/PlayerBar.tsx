@@ -31,7 +31,7 @@ import { HeartGlyph, PlayPauseGlyph } from '@/components/player/glyphs'
 import { SourceBadge } from '@/components/sources/SourceBadge'
 import { VipTag } from '@/components/sources/VipTag'
 import { seekHowl } from '@/hooks/useAudioEngine'
-import { useToggleStar } from '@/hooks/useServerQueries'
+import { useCurrentSongFavorite } from '@/hooks/useFavoriteState'
 import { useSourceCapabilities } from '@/hooks/useSourceQueries'
 import { sourceSupportsFavorites } from '@/services/heartCapability'
 import { ImageWithFallback } from '@/components/common/ImageWithFallback'
@@ -308,9 +308,8 @@ export function PlayerBar({ wc }: { wc: WindowClass }) {
   const toggleFullscreen = usePlayerStore(s => s.toggleFullscreen)
   const setFullscreen = usePlayerStore(s => s.setFullscreen)
   const setQueueOpen = usePlayerStore(s => s.setQueueOpen)
-  const updateCurrentSong = usePlayerStore(s => s.updateCurrentSong)
 
-  const toggleStar = useToggleStar()
+  const favState = useCurrentSongFavorite()
   /* B4：心形按 favorites 能力出现（与 SongList 一致），插件源没声明就不给入口 */
   const caps = useSourceCapabilities()
   const canFavoriteCurrent = sourceSupportsFavorites(caps, currentSong?.serverId)
@@ -352,12 +351,9 @@ export function PlayerBar({ wc }: { wc: WindowClass }) {
 
   const handleToggleStar = useCallback(() => {
     if (!currentSong) return
-    if (!currentSong.starred) haptic('light')
-    toggleStar.mutate(
-      { id: currentSong.id, type: 'song', isStarred: !!currentSong.starred, song: currentSong },
-      { onSuccess: () => updateCurrentSong({ starred: !currentSong.starred }) }
-    )
-  }, [currentSong, toggleStar, updateCurrentSong])
+    if (!favState.starred) haptic('light')
+    favState.toggle()
+  }, [currentSong, favState])
 
   const swipe = useMiniSwipe(() => next(), handlePrev, () => setFullscreen(true))
   // 甩的时候封面跟着手指，曲名多走一点，像被带着往前翻
@@ -454,12 +450,12 @@ export function PlayerBar({ wc }: { wc: WindowClass }) {
   const favorite = canFavoriteCurrent && (
     <button
       onClick={handleToggleStar}
-      disabled={toggleStar.isPending}
+      disabled={favState.pending}
       className={cn(iconBtnBase, 'aria-pressed:text-ink')}
-      aria-label={t(currentSong.starred ? 'player.unfavorite' : 'player.favorite')}
-      aria-pressed={!!currentSong.starred}
+      aria-label={t(favState.starred ? 'player.unfavorite' : 'player.favorite')}
+      aria-pressed={favState.starred}
     >
-      <HeartGlyph on={!!currentSong.starred} size={18} />
+      <HeartGlyph on={favState.starred} size={18} />
     </button>
   )
 

@@ -59,6 +59,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { Song } from '@/api/types'
+import { songIsStarred, useFavoriteIdsBySource } from '@/hooks/useFavoriteState'
 import { detailPath } from '@/utils/detailPath'
 import { startSongDrag, endSongDrag } from '@/lib/songDrag'
 
@@ -203,6 +204,8 @@ export function SongList({
     [servers]
   )
   const activeServerId = useServerStore(s => s.activeServerId)
+  // 网易云 / QQ 的歌曲不带 starred：按各自音源的收藏列表补（只读缓存）
+  const favoriteIds = useFavoriteIdsBySource(songs.map(s => s.serverId ?? ''))
   // 只调一次：返回值已按内容 memo（引用只随能力/探测结果变），整个对象可以
   // 进 rowCapsOf 与批量操作的依赖；renderRow 仍只解构布尔量，SongRow 的 memo 不受影响
   const primaryCaps = useServerCapabilities()
@@ -348,6 +351,7 @@ export function SongList({
         key={song.id + '-' + index}
         accountLacksVip={accountLacksVip}
         song={song}
+        starred={songIsStarred(song, favoriteIds[song.serverId ?? ''])}
         index={index}
         isCurrentSong={currentSongId === song.id}
         isPlaying={isPlaying && currentSongId === song.id}
@@ -372,7 +376,7 @@ export function SongList({
       />
     )
   }, [currentSongId, isPlaying, showCover, showAlbum, showIndex, sourceBadge, getAlternates, onReplace, handlePlayIndex,
-      handlePlaylistAdd, handleToggleStar, sourceCaps, sourceAccountVip, activeServerId,
+      handlePlaylistAdd, handleToggleStar, sourceCaps, sourceAccountVip, activeServerId, favoriteIds,
       primaryShares, primaryRating, primaryFavorites, primaryRadio,
       handleShare, handleRadio, isSelected, selectionActive, selectable,
       handleRowClick, handleRowLongPress, onRemove])
@@ -565,6 +569,8 @@ function VirtualSongRows({
 
 interface SongRowProps {
   song: Song
+  /** 是否已收藏（列表层按来源补齐过插件音源的状态） */
+  starred: boolean
   index: number
   isCurrentSong: boolean
   isPlaying: boolean
@@ -598,6 +604,7 @@ interface SongRowProps {
 // React.memo：只有 props 变化时才重渲染，播放进度更新不会触发歌曲行重渲染
 const SongRow = React.memo(function SongRow({
   song,
+  starred,
   accountLacksVip,
   index,
   isCurrentSong,
@@ -623,7 +630,7 @@ const SongRow = React.memo(function SongRow({
 }: SongRowProps) {
   // 收藏状态直接读缓存里的这一条：mutation 的 onMutate 会同步就地改写缓存，
   // 视觉反馈依然是即时的，而且失败回滚也走同一条通路，不会出现两套真相。
-  const localStarred = !!song.starred
+  const localStarred = starred
   const { t } = useT()
   const navigate = useNavigate()
   // 行是 memo 的，封面 URL 只在这首歌变化时才重算；按歌曲来源取适配器

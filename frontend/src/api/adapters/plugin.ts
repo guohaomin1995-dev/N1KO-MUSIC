@@ -356,7 +356,8 @@ export class PluginAdapter implements MusicServerAdapter {
     if (!this.host.hasMethod('n1ko.user.getFavorites')) return { songs: [], albums: [], artists: [] }
     const first = await this.host.call<Paged<MusicItem> | null>('n1ko.user.getFavorites', 1)
     const songs = await this.fetchMusicPages(1, page => this.host.call<Paged<MusicItem> | null>('n1ko.user.getFavorites', page).then(p => p ?? { data: [], isEnd: true }), first ?? { data: [], isEnd: true })
-    return { songs, albums: [], artists: [] }
+    // 收藏列表里的歌当然是已收藏的：插件协议的条目不带这个字段，不补的话收藏页一片空心
+    return { songs: songs.map(song => ({ ...song, starred: true })), albums: [], artists: [] }
   }
 
   /*

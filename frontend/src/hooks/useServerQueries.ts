@@ -24,6 +24,7 @@ import { parseLrc } from '@/hooks/useLyrics'
 import { mirrorFavorite } from '@/services/historySync'
 import type { ListParams, Lyrics, Song } from '@/api/types'
 import { t } from '@/i18n'
+import { toast } from '@/components/ui/use-toast'
 
 // ===================================================
 // Query Keys - 统一管理缓存键
@@ -716,7 +717,17 @@ export function useToggleStar() {
       patchStarredInCache(queryClient, sid, variables.id, !variables.isStarred)
       return { sid, id: variables.id, previous: variables.isStarred }
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, variables, context) => {
+      /*
+       * 失败要说出来。以前只是把心形悄悄弹回去：网易云风控（-460）、频控退避时
+       * 用户看到的就是「点了没反应」，还以为是手没点中。
+       */
+      const detail = error instanceof Error ? error.message.replace(/^[A-Za-z]*Error:\s*/, '') : String(error)
+      toast({
+        title: t(variables.isStarred ? 'song.unfavoriteFailed' : 'song.favoriteFailed'),
+        description: detail || undefined,
+        variant: 'destructive',
+      })
       if (!context) return
       patchStarredInCache(queryClient, context.sid, context.id, context.previous)
     },

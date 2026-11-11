@@ -632,6 +632,8 @@
   "song.viewAlbum": "查看专辑",
   "song.viewDetail": "查看歌曲详情",
   "song.allFavorited": "选中的歌曲都已收藏",
+  "song.favoriteFailed": "收藏失败",
+  "song.unfavoriteFailed": "取消收藏失败",
   "song.favoriteSkipped": "{count} 首来自不支持收藏的音源，已跳过",
   "song.favoriteSkipped_one": "{count} 首来自不支持收藏的音源，已跳过",
   "song.radioUnsupported": "这个音源没有提供相似曲目",

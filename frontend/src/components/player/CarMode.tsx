@@ -19,7 +19,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { Play, Pause, SkipBack, SkipForward, X } from '@phosphor-icons/react'
 import { usePlayerStore } from '@/store/playerStore'
 import { seekHowl } from '@/hooks/useAudioEngine'
-import { useToggleStar } from '@/hooks/useServerQueries'
+import { useCurrentSongFavorite } from '@/hooks/useFavoriteState'
 import { useSourceCapabilities } from '@/hooks/useSourceQueries'
 import { sourceSupportsFavorites } from '@/services/heartCapability'
 import { formatDuration } from '@/utils/formatters'
@@ -99,7 +99,7 @@ export function CarMode({ onExit }: { onExit: () => void }) {
   const togglePlay = usePlayerStore(s => s.togglePlay)
   const next = usePlayerStore(s => s.next)
   const prev = usePlayerStore(s => s.prev)
-  const toggleStar = useToggleStar()
+  const favorite = useCurrentSongFavorite()
 
   useWakeLock(true)
 
@@ -169,16 +169,12 @@ export function CarMode({ onExit }: { onExit: () => void }) {
           <Button
             variant="secondary"
             size="icon-lg"
-            onClick={() => toggleStar.mutate({
-              id: currentSong.id,
-              type: 'song',
-              isStarred: !!currentSong.starred,
-              song: currentSong,
-            })}
-            aria-label={currentSong.starred ? t('player.unfavorite') : t('player.favorite')}
+            onClick={favorite.toggle}
+            disabled={favorite.pending}
+            aria-label={favorite.starred ? t('player.unfavorite') : t('player.favorite')}
             className="h-16 w-16"
           >
-            <HeartGlyph on={!!currentSong.starred} size={30} />
+            <HeartGlyph on={favorite.starred} size={30} />
           </Button>
         ) : (
           <span className="grid h-16 w-16" aria-hidden="true" />

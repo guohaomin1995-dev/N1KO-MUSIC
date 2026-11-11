@@ -42,7 +42,8 @@ import { markSkip } from '@/lib/skipDirection'
 import { notePauseReason } from '@/lib/playbackTrail'
 import { useDevicePosture } from '@/hooks/useDevicePosture'
 import { seekHowl } from '@/hooks/useAudioEngine'
-import { useLyricsQuery, useToggleStar } from '@/hooks/useServerQueries'
+import { useLyricsQuery } from '@/hooks/useServerQueries'
+import { useCurrentSongFavorite } from '@/hooks/useFavoriteState'
 import { useSourceCapabilities } from '@/hooks/useSourceQueries'
 import { sourceSupportsFavorites } from '@/services/heartCapability'
 import { useCoverUrl } from '@/hooks/useCoverUrl'
@@ -293,7 +294,6 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
   const setFullscreen = usePlayerStore(s => s.setFullscreen)
   const setQueueOpen = usePlayerStore(s => s.setQueueOpen)
   const setCarMode = usePlayerStore(s => s.setCarMode)
-  const updateCurrentSong = usePlayerStore(s => s.updateCurrentSong)
 
   const [showVolumePanel, setShowVolumePanel] = useState(false)
   // 两个对话框都要把「打开那一刻的歌」钉住：填写的这几秒里上一首可能已经播完切走了
@@ -359,7 +359,7 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
   const { primary: coverUrl } = useCoverUrl(currentSong ?? undefined, { size: 640 })
   const { urls: playbackCovers } = usePlaybackCover(currentSong)
   const lyricCover = playbackCovers[0] ?? coverUrl
-  const toggleStar = useToggleStar()
+  const favorite = useCurrentSongFavorite()
   const caps = useSourceCapabilities()
   const canFavoriteCurrent = sourceSupportsFavorites(caps, currentSong?.serverId)
 
@@ -412,11 +412,8 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
 
   const handleToggleStar = () => {
     if (!currentSong) return
-    if (!currentSong.starred) haptic('light')
-    toggleStar.mutate(
-      { id: currentSong.id, type: 'song', isStarred: !!currentSong.starred, song: currentSong },
-      { onSuccess: () => updateCurrentSong({ starred: !currentSong.starred }) }
-    )
+    if (!favorite.starred) haptic('light')
+    favorite.toggle()
   }
 
   const handleNavigateArtist = () => {
@@ -580,12 +577,12 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
       {canFavoriteCurrent && (
         <button
           onClick={handleToggleStar}
-          disabled={toggleStar.isPending}
-          aria-label={currentSong.starred ? t('player.unfavorite') : t('player.favorite')}
-          aria-pressed={!!currentSong.starred}
+          disabled={favorite.pending}
+          aria-label={favorite.starred ? t('player.unfavorite') : t('player.favorite')}
+          aria-pressed={favorite.starred}
           className={cn(softBtnBase, 'h-11 w-11 aria-pressed:text-ink')}
         >
-          <HeartGlyph on={!!currentSong.starred} size={22} />
+          <HeartGlyph on={favorite.starred} size={22} />
         </button>
       )}
     </div>

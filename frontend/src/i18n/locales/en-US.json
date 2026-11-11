@@ -632,6 +632,8 @@
   "song.viewAlbum": "View album",
   "song.viewDetail": "Track details",
   "song.allFavorited": "Every selected track is already a favourite",
+  "song.favoriteFailed": "Couldn’t add to favorites",
+  "song.unfavoriteFailed": "Couldn’t remove from favorites",
   "song.favoriteSkipped": "{count} tracks come from sources without favourites — skipped",
   "song.favoriteSkipped_one": "{count} track comes from a source without favourites — skipped",
   "song.radioUnsupported": "This source offers no similar tracks",

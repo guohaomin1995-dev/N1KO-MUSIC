@@ -102,3 +102,57 @@ test('顶层 user: 不再暴露写方法（宿主唯一调用面是 n1ko.user）
   // 读方法保留（module.exports.requireLogin 那几处还在用）
   assert.equal(typeof plugin.user.getPlaylists, 'function')
 })
+
+test('收藏：先走 eapi 的 radio/like；被风控就改走「我喜欢的音乐」歌单，并记住', async () => {
+  const hits = []
+  let likeCode = 200
+  let manipulateCode = 200
+  const realFetch = globalThis.fetch
+  const json = body => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
+  globalThis.fetch = async (url, init) => {
+    const u = String(url)
+    hits.push({ u, body: String(init && init.body || '') })
+    if (u.includes('radio/like')) return json({ code: likeCode })
+    if (u.includes('nuser/account/get')) return json({ code: 200, account: { id: 42 }, profile: { userId: 42 } })
+    if (u.includes('user/playlist')) {
+      return json({ code: 200, playlist: [
+        { id: 7001, name: '我喜欢的音乐', specialType: 5, creator: { userId: 42 } },
+        { id: 7002, name: '别的歌单', specialType: 0, creator: { userId: 42 } },
+      ] })
+    }
+    if (u.includes('playlist/manipulate/tracks')) return json({ code: manipulateCode, body: { code: manipulateCode } })
+    return json({ code: 200 })
+  }
+  try {
+    const { plugin } = await loadPlugin('plugins/netease', CRED)
+    const item = { platform: 'netease', id: '3347295437' }
+
+    // 正常账号：红心接口直接成功，走的是 eapi
+    await plugin.n1ko.user.setFavorite(item, true)
+    const like = hits.filter(h => h.u.includes('radio/like'))
+    assert.equal(like.length, 1)
+    assert.ok(like[0].u.includes('/eapi/radio/like'), `应走 eapi：${like[0].u}`)
+    assert.ok(!hits.some(h => h.u.includes('/weapi/radio/like')), '不能再走 weapi')
+
+    // 红心接口被风控：改走歌单（op=add，pid 是「我喜欢的音乐」）
+    hits.length = 0
+    likeCode = -460
+    await plugin.n1ko.user.setFavorite(item, true)
+    const manip = hits.filter(h => h.u.includes('playlist/manipulate/tracks'))
+    assert.equal(manip.length, 1, '被拦后应改走歌单')
+
+    // 记住了：下一次直接走歌单，不再去撞红心接口
+    hits.length = 0
+    await plugin.n1ko.user.setFavorite(item, false)
+    assert.equal(hits.filter(h => h.u.includes('radio/like')).length, 0, '记住之后不再请求红心接口')
+    assert.equal(hits.filter(h => h.u.includes('playlist/manipulate/tracks')).length, 1)
+
+    // 已在歌单里（502）算成功；其他失败码要报错
+    manipulateCode = 502
+    await plugin.n1ko.user.setFavorite(item, true)
+    manipulateCode = 500
+    await assert.rejects(() => plugin.n1ko.user.setFavorite(item, true), /收藏失败/)
+  } finally {
+    globalThis.fetch = realFetch
+  }
+})

@@ -574,6 +574,41 @@ async function createPlaylistImpl(name) {
   return { platform: 'netease', id: String(playlist.id), title: playlist.name }
 }
 
+/**
+ * 「我喜欢的音乐」歌单的 id（网易云里它就是红心列表本身：specialType = 5，排在用户歌单第一个）。
+ * 红心接口被风控时，收藏改成往这个歌单里加 / 删歌，效果完全一样。
+ */
+var likedPlaylistCache = { key: '', id: '' }
+async function likedPlaylistId(deviceId) {
+  var credKey = String((env && env.credentials) || '')
+  if (likedPlaylistCache.key === credKey && likedPlaylistCache.id) return likedPlaylistCache.id
+  var uid = await currentUid(env, deviceId)
+  if (!uid) throw pluginError('unauthorized', '凭据已失效，请重新扫码')
+  var res = await weapiRequest(env, '/api/user/playlist', { uid: uid, limit: 30, offset: 0, includeVideo: true }, deviceId)
+  var list = res.body.playlist || []
+  var mine = list.filter(function (p) { return String(p.creator && p.creator.userId) === String(uid) || String(p.userId) === String(uid) })
+  var liked = mine.find(function (p) { return p.specialType === 5 }) || mine[0]
+  if (!liked) throw pluginError('unknown', '找不到「我喜欢的音乐」歌单')
+  likedPlaylistCache = { key: credKey, id: String(liked.id) }
+  return likedPlaylistCache.id
+}
+
+/** 收藏 / 取消收藏走「我喜欢的音乐」歌单。已在 / 已不在里面都算成功 */
+async function setFavoriteViaPlaylist(trackId, liked, deviceId) {
+  var pid = await likedPlaylistId(deviceId)
+  var res = await eapiRequest(env, '/api/playlist/manipulate/tracks', {
+    op: liked ? 'add' : 'del',
+    pid: pid,
+    trackIds: JSON.stringify([String(trackId)]),
+    imme: 'true',
+  }, deviceId)
+  var inner = (res.body && res.body.body) || res.body || {}
+  var code = inner.code !== undefined ? inner.code : res.body && res.body.code
+  /* 502：歌曲已在歌单里（重复添加）；删一首本来就不在的也不该报错 */
+  if (code === 200 || (liked && code === 502) || (!liked && code === 404)) return
+  throw pluginError('unknown', '网易云收藏失败（歌单 code ' + code + '）')
+}
+
 async function addToPlaylistImpl(musicSheet, musicItems) {
   requireLogin()
   var res = await eapiRequest(env, '/api/playlist/manipulate/tracks', {
@@ -1031,13 +1066,37 @@ module.exports = {
         if (!musicItem || !musicItem.id || !/^\d+$/.test(String(musicItem.id)) || musicItem.name) {
           throw pluginError('unsupported', '网易云收藏只支持歌曲')
         }
+        /*
+         * 走 eapi（PC 客户端协议），和改歌单、读收藏等其他请求一致。
+         * 原先这里是全插件唯一一处 weapi：带着 PC 客户端的 cookie（os=pc / appver）
+         * 却用网页端协议发，指纹对不上，网易云回 -460「Cheating」把收藏拦下。
+         */
         var deviceId = await ensureDeviceId(env)
-        await weapiRequest(env, '/api/radio/like', {
-          alg: 'itembased',
-          trackId: Number(musicItem.id),
-          like: !!liked,
-          time: '3',
-        }, deviceId)
+        /*
+         * 有的账号 / 设备上，红心接口（radio/like）会被风控固定拦成 -460，
+         * 换 weapi / eapi 都一样。被拦过一次就记下来，之后直接走「我喜欢的音乐」歌单，
+         * 不再反复去撞风控（撞多了网易云会把这个账号的其他写操作也收紧）。
+         */
+        var mode = await env.storage.get('favorite-mode')
+        if (mode !== 'playlist') {
+          try {
+            var res = await eapiRequest(env, '/api/radio/like', {
+              alg: 'itembased',
+              trackId: String(musicItem.id),
+              like: liked ? 'true' : 'false',
+              time: '3',
+            }, deviceId)
+            /* 登录失效已在 assertNotDenied 里抛出；其余非 200 也不能当成功 */
+            var code = res.body && res.body.code
+            if (code !== 200) throw pluginError('unknown', '网易云收藏失败（code ' + code + '）')
+            favoritesCache.loaded = false
+            return
+          } catch (err) {
+            if (!(err && err.name === 'PluginError' && err.code === 'rate-limited')) throw err
+            await env.storage.set('favorite-mode', 'playlist')
+          }
+        }
+        await setFavoriteViaPlaylist(musicItem.id, !!liked, deviceId)
         favoritesCache.loaded = false
       },
     },
