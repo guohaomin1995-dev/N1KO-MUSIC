@@ -1,7 +1,9 @@
 /**
- * 收藏页（PLAN 2.4）：多源时按音源分节（歌曲/专辑双分段保留），
- * ?src=<serverId> 只看某一源；单源行为与原版一致。
- * 版式：大标题 + 体量说明 + 播放全部（青柠）；一枚分段控件切歌曲 / 专辑；专辑是封面网格。
+ * 收藏页（PLAN 2.4）：多源时顶上一排音源 tab（SourceTabs），一次只看一个音源，
+ * 选中的音源记在 ?src=<serverId>；单源行为与原版一致。
+ * 版式：大标题 + 体量说明 + 播放全部（青柠）；音源 tab 与「歌曲 / 专辑」同一行、滚动时吸顶；专辑是封面网格。
+ *
+ * 以前多源是一节接一节往下排，网易云收藏几百首，要划很久才看得到 QQ 那一节。
  */
 
 import { useState } from 'react'
@@ -11,12 +13,12 @@ import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { SPRING_SNAPPY } from '@/lib/motion'
 import { useStarred } from '@/hooks/useServerQueries'
-import { useConnectedSources, useSourceStarred } from '@/hooks/useSourceQueries'
+import { useSourceStarred } from '@/hooks/useSourceQueries'
 import { playAllInOrder } from '@/utils/playActions'
 import { SongList } from '@/components/music/SongList'
 import { AlbumCard } from '@/components/music/AlbumCard'
 import { useQueryClient } from '@tanstack/react-query'
-import { SourceBadge } from '@/components/sources/SourceBadge'
+import { SourceTabPanel, SourceTabs, TabDock, defaultTabId, shortSourceName } from '@/components/sources/SourceTabs'
 import { SourceGroupState } from '@/components/sources/SourceGroupState'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -40,11 +42,9 @@ export default function Favorites() {
   const { t } = useT()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<FavTab>('songs')
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const srcFilter = sourceParam(searchParams)
 
-  const sources = useConnectedSources()
-  const multi = sources.length > 1 && !srcFilter
 
   // 单源 / ?src= 过滤：一条查询；多源：每源一条（失败塌缩成该节错误行）。
   // 多源时单源 hook 关掉，避免设了曲库范围后主库同一请求打两遍
@@ -56,23 +56,45 @@ export default function Favorites() {
    * 三态各自呈现，位置从一开始就占住。
    */
   const starredGroups = useSourceStarred()
-  const single = useStarred(srcFilter, { enabled: !multi })
+  /* 能收藏的音源不止一个才出 tab；只有一个时就是原来的单源页 */
+  const tabbed = starredGroups.length > 1
+  const single = useStarred(srcFilter, { enabled: !tabbed })
   const singleSongs = single.data?.songs ?? []
   const singleAlbums = single.data?.albums ?? []
 
-  const sections = multi
-    ? starredGroups.map(g => ({
-        serverId: g.serverId,
-        name: g.name,
-        status: g.status,
-        songs: g.data?.songs ?? [],
-        albums: g.data?.albums ?? [],
-      }))
-    : srcFilter
-      ? [{ serverId: srcFilter, name: sources.find(s => s.serverId === srcFilter)?.name ?? '', status: single.isError ? 'error' as const : single.isLoading ? 'loading' as const : 'success' as const, songs: singleSongs, albums: singleAlbums }]
-      : [{ serverId: '', name: '', status: single.isError ? 'error' as const : single.isLoading ? 'loading' as const : 'success' as const, songs: singleSongs, albums: singleAlbums }]
+  /* 选中的音源：地址栏 ?src= 指着的那个；没指或者指的源不在了，落到第一个 */
+  const sourceTabItems = starredGroups.map(g => ({
+    id: g.serverId,
+    label: shortSourceName(g.name),
+    pluginId: g.pluginId,
+    loading: g.status !== 'success',
+    count: tab === 'songs' ? g.data?.songs.length : g.data?.albums.length,
+  }))
+  const selectedId = tabbed ? defaultTabId(sourceTabItems, srcFilter) : (srcFilter ?? '')
+  const selectSource = (id: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('src', id)
+      return next
+    }, { replace: true })
+  }
 
-  if (!multi && single.isLoading) {
+  const selectedGroup = tabbed ? starredGroups.find(g => g.serverId === selectedId) : undefined
+  const section = selectedGroup
+    ? {
+        serverId: selectedGroup.serverId,
+        status: selectedGroup.status,
+        songs: selectedGroup.data?.songs ?? [],
+        albums: selectedGroup.data?.albums ?? [],
+      }
+    : {
+        serverId: srcFilter ?? '',
+        status: single.isError ? 'error' as const : single.isLoading ? 'loading' as const : 'success' as const,
+        songs: singleSongs,
+        albums: singleAlbums,
+      }
+
+  if (!tabbed && single.isLoading) {
     return (
       <div className="pt-2 regular:pt-4" aria-hidden="true">
         <div className="skeleton h-9 w-60 rounded-md regular:h-11" />
@@ -84,8 +106,8 @@ export default function Favorites() {
     )
   }
 
-  const allSongs = sections.flatMap(s => s.songs)
-  const allAlbums = sections.flatMap(s => s.albums)
+  const allSongs = section.songs
+  const allAlbums = section.albums
 
   const tabs: { key: FavTab; label: string; count: number }[] = [
     { key: 'songs', label: t('library.songs'), count: allSongs.length },
@@ -113,87 +135,87 @@ export default function Favorites() {
         )}
       </header>
 
-      {/* 分段控件：歌曲 / 专辑，当前项是轨道里被托起的一块，换项时它会滑过去 */}
-      <div className="mt-6 inline-flex max-w-full overflow-x-auto rounded-pill bg-ink/[0.06] p-1 scrollbar-hide">
-        {tabs.map(item => {
-          const active = tab === item.key
-          return (
-            <button
-              key={item.key}
-              onClick={() => setTab(item.key)}
-              aria-pressed={active}
-              className={cn(SEG_OPTION, active ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
-            >
-              {active && (
-                <motion.span
-                  layoutId="favorites-tabs"
-                  transition={SPRING_SNAPPY}
-                  aria-hidden="true"
-                  className={SEG_PILL}
-                />
-              )}
-              {item.label}
-              <span className="num text-[13px] text-ink-3">{item.count}</span>
-            </button>
-          )
-        })}
-      </div>
+      {/*
+        控件行：左边音源 tab（多源时），右边歌曲 / 专辑。整行滚动时吸在工具栏下面，
+        长列表划到一半也能直接换音源。两组各自是一块半透明毛玻璃，压在列表上也读得清。
+      */}
+      <TabDock className="mt-6 flex flex-wrap items-center gap-3">
+        {tabbed && (
+          <SourceTabs
+            layoutId="favorites-source-tabs"
+            value={selectedId}
+            onChange={selectSource}
+            items={sourceTabItems}
+          />
+        )}
+        <div className="inline-flex max-w-full overflow-x-auto rounded-pill bg-surface/85 p-1 shadow-sm ring-1 ring-ink/[0.06] backdrop-blur-xl scrollbar-hide">
+          {tabs.map(item => {
+            const active = tab === item.key
+            return (
+              <button
+                key={item.key}
+                onClick={() => setTab(item.key)}
+                aria-pressed={active}
+                className={cn(SEG_OPTION, active ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="favorites-tabs"
+                    transition={SPRING_SNAPPY}
+                    aria-hidden="true"
+                    className={SEG_PILL}
+                  />
+                )}
+                {item.label}
+                <span className="num text-[13px] text-ink-3">{item.count}</span>
+              </button>
+            )
+          })}
+        </div>
+      </TabDock>
 
       <div className="mt-6">
-        {sections.map(section => {
-          const songs = tab === 'songs' ? section.songs : []
-          const albums = tab === 'albums' ? section.albums : []
-          return (
-            <section key={section.serverId || 'single'} className="mb-10">
-              {multi && (
-                <div className="section-head !pt-4">
-                  <h2 className="flex items-center gap-2.5">
-                    <SourceBadge serverId={section.serverId} withName />
-                  </h2>
-                </div>
-              )}
-              {section.status !== 'success' && (
-                <SourceGroupState
-                  serverId={section.serverId}
-                  status={section.status}
-                  onRetry={() =>
-                    queryClient.invalidateQueries({
-                      predicate: query => query.queryKey[1] === 'starred',
-                    })
-                  }
+        <SourceTabPanel tabKey={`${section.serverId}:${tab}`}>
+          <section className="mb-10">
+            {section.status !== 'success' && (
+              <SourceGroupState
+                serverId={section.serverId}
+                status={section.status}
+                onRetry={() =>
+                  queryClient.invalidateQueries({
+                    predicate: query => query.queryKey[1] === 'starred',
+                  })
+                }
+              />
+            )}
+            {section.status === 'success' && tab === 'songs' && (
+              section.songs.length === 0 ? (
+                <EmptyState
+                  ruled
+                  title={t('empty.favoriteSongs.title')}
+                  description={t('empty.favoriteSongs.description')}
                 />
-              )}
-              {section.status === 'success' && tab === 'songs' && (
-                songs.length === 0 ? (
-                  /* 多源下也要给空态：只留一个孤零零的音源名，
-                     「这个源没有收藏」和「这个源坏了」就分不出来了 */
-                  <EmptyState
-                    ruled
-                    title={t('empty.favoriteSongs.title')}
-                    description={t('empty.favoriteSongs.description')}
-                  />
-                ) : songs.length > 0 ? (
-                  <SongList songs={songs} showAlbum sourceBadge={multi} />
-                ) : null
-              )}
-              {section.status === 'success' && tab === 'albums' && (
-                albums.length === 0 ? (
-                  <EmptyState
-                    ruled
-                    title={t('empty.favoriteAlbums.title')}
-                    description={t('empty.favoriteAlbums.description')}
-                  />
-                ) : albums.length > 0 ? (
-                  <CoverGrid>
-                    {albums.map(album => (
-                      <AlbumCard key={`${section.serverId}:${album.id}`} album={album} />
-                    ))}
-                  </CoverGrid>
-                ) : null
-              )}
-            </section>
-          )
-        })}
+              ) : (
+                <SongList songs={section.songs} showAlbum />
+              )
+            )}
+            {section.status === 'success' && tab === 'albums' && (
+              section.albums.length === 0 ? (
+                <EmptyState
+                  ruled
+                  title={t('empty.favoriteAlbums.title')}
+                  description={t('empty.favoriteAlbums.description')}
+                />
+              ) : (
+                <CoverGrid>
+                  {section.albums.map(album => (
+                    <AlbumCard key={`${section.serverId}:${album.id}`} album={album} />
+                  ))}
+                </CoverGrid>
+              )
+            )}
+          </section>
+        </SourceTabPanel>
       </div>
     </div>
   )

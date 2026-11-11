@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, MusicNote, DotsThree, Trash, Play, Shuffle, UploadSimple, HardDrive } from '@phosphor-icons/react'
 import { usePlaylists, useDeletePlaylist, queryKeys } from '@/hooks/useServerQueries'
 import { useConnectedSources, useSourcePlaylists } from '@/hooks/useSourceQueries'
-import { SourceBadge } from '@/components/sources/SourceBadge'
+import { SourceTabPanel, SourceTabs, TabDock, defaultTabId, shortSourceName, type SourceTabItem } from '@/components/sources/SourceTabs'
 import { ImportFromSourceDialog } from '@/components/sources/ImportFromSourceDialog'
 import { useLocalPlaylistStore, type LocalPlaylist } from '@/store/localPlaylistStore'
 import { SongList } from '@/components/music/SongList'
@@ -69,18 +69,21 @@ function CaptionTag({ children }: { children: string }) {
   )
 }
 
+/** 本地混合歌单的 tab id（?src=local） */
+const LOCAL_TAB = 'local'
+
 export default function Playlists() {
   const { t } = useT()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const srcFilter = sourceParam(searchParams)
   const sources = useConnectedSources()
-  const multi = sources.length > 1 && !srcFilter
   // 多源：每源一节（主库节带新建/导入与删除）；单源/?src=：一条查询，行为同旧版。
   // ?src= 时这条查询必须打那个源：不传来源等于在「网易云」这一节里摆主库的歌单，
   // 点进去还会跳到一个不存在的歌单详情。
-  const primary = usePlaylists(srcFilter)
+  /* 「本地」tab 不是一个音源，别拿它去查歌单 */
+  const primary = usePlaylists(srcFilter === LOCAL_TAB ? undefined : srcFilter)
   const grouped = useSourcePlaylists()
   const deletePlaylist = useDeletePlaylist()
   const [showCreate, setShowCreate] = useState(false)
@@ -97,23 +100,49 @@ export default function Playlists() {
 
   useEffect(() => { void localLoad() }, [localLoad])
 
+  /*
+   * 顶上的 tab：各音源 + 本地混合歌单（有的话）。多于一个才出现，一次只看一个；
+   * 选中的记在 ?src=（本地是 ?src=local）。以前是一节接一节往下排，要划很久。
+   */
+  const tabItems: SourceTabItem[] = [
+    ...grouped.map(g => ({
+      id: g.serverId,
+      label: shortSourceName(g.name),
+      pluginId: g.pluginId,
+      loading: g.status !== 'success',
+      count: g.data?.length,
+    })),
+    ...(localPlaylists.length > 0
+      ? [{ id: LOCAL_TAB, label: t('playlist.localLabel'), local: true, count: localPlaylists.length }]
+      : []),
+  ]
+  const tabbed = tabItems.length > 1
+  const selectedId = tabbed ? defaultTabId(tabItems, srcFilter) : (srcFilter ?? '')
+  const showLocal = tabbed ? selectedId === LOCAL_TAB : localPlaylists.length > 0
+  const selectTab = (id: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('src', id)
+      return next
+    }, { replace: true })
+  }
+
   const activeServerId = useServerStore(s => s.activeServerId)
   /*
    * 多源下**不等最慢的那个**：NAS 秒回却要陪网易云一起转骨架，是计划里
    * 明确要避免的。只有一个源都还没结果时才算整页加载中，其余交给分节各自呈现。
    */
-  const isLoading = multi
-    ? grouped.length > 0 && grouped.every(g => g.status === 'loading')
-    : primary.isLoading
+  const isLoading = tabbed ? false : primary.isLoading
   /* 全部源都失败 ≠ 你没有歌单。这两件事此前长得一模一样，
      用户被告知「创建第一个歌单吧」，而真相是三个源都挂了。 */
-  const allSourcesFailed = multi && grouped.length > 0 && grouped.every(g => g.status === 'error')
+  const allSourcesFailed = tabbed && !showLocal && grouped.length > 0 && grouped.every(g => g.status === 'error')
   /* 重试按谓词失效：聚合查询的键是 [serverId, 'playlists']，
      用前缀 ['playlists'] 一个都匹配不上（搜索页那个按钮就是这么失灵的）*/
   const refetchAll = () =>
     queryClient.invalidateQueries({ predicate: q => q.queryKey[1] === 'playlists' })
-  const sections = multi
-    ? grouped.map(g => ({
+  const selectedGroup = tabbed && !showLocal ? grouped.find(g => g.serverId === selectedId) : undefined
+  const sections = tabbed
+    ? (selectedGroup ? [selectedGroup] : []).map(g => ({
         serverId: g.serverId,
         name: g.name,
         status: g.status,
@@ -135,7 +164,11 @@ export default function Playlists() {
       }]
   /* 加载中不显示计数（阶段 2.1）：0 个歌单在撒谎 */
   const anyLoading = sections.some(s => s.status === 'loading')
-  const totalCount = anyLoading ? -1 : sections.reduce((sum, s) => sum + s.items.length, 0)
+  /* 页头的数量说的是当前这一个 tab */
+  const visibleLocal = showLocal ? localPlaylists : []
+  const totalCount = showLocal && tabbed
+    ? localPlaylists.length
+    : anyLoading ? -1 : sections.reduce((sum, s) => sum + s.items.length, 0)
 
   async function handleCreate() {
     if (!newName.trim()) return
@@ -232,14 +265,20 @@ export default function Playlists() {
        * 「不等最慢的」，旧实现却在 anyLoading 时用 totalCount=-1 把整页
        * 换成 12 格骨架，把已到的分节盖掉。加载中的分节自己摆骨架。
        */}
-      <div className="mt-8">
-      {allSourcesFailed && localPlaylists.length === 0 ? (
+      {tabbed && (
+        <TabDock className="mt-6">
+          <SourceTabs layoutId="playlists-source-tabs" items={tabItems} value={selectedId} onChange={selectTab} />
+        </TabDock>
+      )}
+      <div className={tabbed ? 'mt-6' : 'mt-8'}>
+      <SourceTabPanel tabKey={tabbed ? selectedId : 'all'}>
+      {allSourcesFailed && visibleLocal.length === 0 ? (
         <EmptyState mascot="maodou-surprised"
           title={t('sources.allFailed.title')}
           description={t('sources.allFailed.description')}
           action={{ label: t('action.retry'), onClick: () => void refetchAll() }}
         />
-      ) : totalCount === 0 && localPlaylists.length === 0 && !anyLoading ? (
+      ) : totalCount === 0 && visibleLocal.length === 0 && !anyLoading ? (
         <EmptyState
           ruled
           title={t('empty.playlists.title')}
@@ -256,7 +295,7 @@ export default function Playlists() {
           )}
 
           {/* 本地混合歌单（阶段 5）：跨源曲目快照，不同步 backend */}
-          {localPlaylists.length > 0 && (
+          {showLocal && localPlaylists.length > 0 && (
             <section>
               <div className="section-head !pt-0">
                 <h2 className="flex items-center gap-2.5">
@@ -283,19 +322,7 @@ export default function Playlists() {
             </section>
           )}
           {sections.map((section, index) => (
-            <section key={section.serverId} className={!multi && localPlaylists.length > 0 ? 'mt-10' : undefined}>
-              {multi && (
-                <div className={cn('section-head', index === 0 && localPlaylists.length === 0 && '!pt-0')}>
-                  <h2 className="flex items-center gap-2.5">
-                    <SourceBadge serverId={section.serverId} withName />
-                  </h2>
-                  {section.status === 'success' && (
-                    <span className="num text-[14px] text-ink-3">
-                      {t('playlist.count', { count: section.items.length })}
-                    </span>
-                  )}
-                </div>
-              )}
+            <section key={section.serverId} className={!tabbed && showLocal ? 'mt-10' : undefined}>
               {section.status === 'error' && (
                 <div>
                   <ErrorState retry={() => { void refetchAll() }} />
@@ -389,6 +416,7 @@ export default function Playlists() {
           ))}
         </>
       )}
+      </SourceTabPanel>
       </div>
 
       {/* Create dialog */}

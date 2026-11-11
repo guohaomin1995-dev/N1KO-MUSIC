@@ -114,7 +114,7 @@ afterEach(() => {
 })
 
 describe('歌单页：骨架只在分节内（F12）', () => {
-  it('NAS 已回、网易云加载中：NAS 的歌单可见，骨架只占网易云那一节', async () => {
+  it('NAS 已回、网易云加载中：tab 上两家都在，NAS 的歌单直接可见；切到网易云才是它的骨架', async () => {
     sourcePlaylistsGroups.push(
       {
         serverId: 'nas', pluginId: undefined, name: 'NAS',
@@ -127,10 +127,17 @@ describe('歌单页：骨架只在分节内（F12）', () => {
     mountAt('/playlists', <PlaylistsPage />)
     await flush()
 
-    expect(document.body.textContent, '已返回的分节不被整页骨架盖掉').toContain('路上的歌单')
-    // 还在加载的那节摆骨架（v6 起是 .skeleton 的闪光块；旧的 animate-pulse 也算），而不是整页 12 格
+    const tabs = [...document.querySelectorAll('[role=tab]')].map(el => el.textContent ?? '')
+    expect(tabs.some(text => text.includes('NAS')), '有 NAS 的 tab').toBe(true)
+    expect(tabs.some(text => text.includes('网易云')), '还在加载的源也有 tab').toBe(true)
+    expect(document.body.textContent, '已返回的那一家不被整页骨架盖掉').toContain('路上的歌单')
+
+    // 点网易云的 tab：那一页是有限的几格骨架，而不是整页 12 格
+    const wyTab = [...document.querySelectorAll('[role=tab]')].find(el => el.textContent?.includes('网易云')) as HTMLButtonElement
+    act(() => { wyTab.click() })
+    await flush()
     const skeletons = document.querySelectorAll('.skeleton, .animate-pulse')
-    expect(skeletons.length, '骨架数量有限（分节内 6 格 ×2）').toBeLessThanOrEqual(14)
+    expect(skeletons.length, '骨架数量有限（一节 6 格）').toBeLessThanOrEqual(14)
     expect(skeletons.length, '确实有骨架').toBeGreaterThanOrEqual(2)
   })
 

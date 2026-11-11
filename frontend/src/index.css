@@ -617,6 +617,26 @@ a {
     transition: background-color var(--dur-3) var(--ease-out), box-shadow var(--dur-3) var(--ease-out);
   }
 
+  /* 吸顶的音源 tab 行（SourceTabs.TabDock）：贴住顶部时身后铺一条工具栏同款毛玻璃，
+     左右撑满内容区（滚动容器 overflow-x: hidden，伸出去的部分被裁掉，不会出横向滚动） */
+  .tab-dock::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -12px -50vw -8px;
+    background: oklch(var(--ground) / var(--glass-alpha));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    box-shadow: inset 0 calc(-1 * var(--hairline)) 0 oklch(var(--hair));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-3) var(--ease-out);
+  }
+
+  .tab-dock[data-stuck]::before {
+    opacity: 1;
+  }
+
   [data-scrolled] > .scroll-edge,
   .scroll-edge[data-scrolled] {
     background: oklch(var(--ground) / var(--glass-alpha));
