@@ -182,6 +182,7 @@
   "player.songInfo": "歌曲信息",
   "player.tabCover": "封面",
   "player.tabLyrics": "歌词",
+  "player.tabPick": "挑歌",
   "song.year": "{year} 年",
   "queue.shuffledOrder": "随机顺序",
   "queue.shuffledOrderNote": "（随机顺序）",

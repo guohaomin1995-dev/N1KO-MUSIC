@@ -182,6 +182,7 @@
   "player.songInfo": "Track info",
   "player.tabCover": "Cover",
   "player.tabLyrics": "Lyrics",
+  "player.tabPick": "Pick",
   "song.year": "{year}",
   "queue.shuffledOrder": "Shuffled",
   "queue.shuffledOrderNote": "(shuffled)",

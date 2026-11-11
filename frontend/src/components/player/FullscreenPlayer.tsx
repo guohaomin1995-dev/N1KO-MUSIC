@@ -3,9 +3,9 @@
  *
  * 同一首歌，四种排法，按窗口形状与折叠姿态自动选择：
  *   stack      窄窗口（iPhone、Duo 外屏）：封面 / 歌词 / 接下来 三选一，下面是进度与控制；下拉收起
- *   portrait   竖着的大窗口（Duo 展开竖握、iPad 竖屏、半屏分屏）：上面封面配控制，下面歌词或接下来
- *   landscape  横着的窗口（iPad 横屏、Duo 横握、桌面）：左列是你操作的东西，右边一直摆着歌词
- *   cards      iPad / 手机横过来时（设置「横屏卡片模式」）：一叠大封面左右甩着挑歌，底下一条正在播放（CardStage）
+ *   portrait   竖着的大窗口：和窄窗口同一种排法。歌词页只放当前一句，光从进度点打上去，束数和方向会变
+ *   landscape  横着的窗口：打开就是同一套歌词（糊开的封面、烟、从进度点打上去的光）。顶上可以改去挑歌
+ *   cards      平板 / 手机横过来且开了卡片模式：同样先给歌词；挑歌才是一叠大封面（CardStage）
  *   tabletop   Duo 半折悬停（useDevicePosture）：折痕以上是歌词，以下是封面带与控制
  *
  * 舞台：背景是 StageField（封面取色的光场，换歌时新颜色从封面向外漫开），永远是暗场、白字，
@@ -46,7 +46,10 @@ import { useLyricsQuery, useToggleStar } from '@/hooks/useServerQueries'
 import { useSourceCapabilities } from '@/hooks/useSourceQueries'
 import { sourceSupportsFavorites } from '@/services/heartCapability'
 import { useCoverUrl } from '@/hooks/useCoverUrl'
+import { usePlaybackCover } from '@/hooks/usePlaybackCover'
 import { LyricDisplay } from './LyricDisplay'
+import { SpotlightLyric } from './SpotlightLyric'
+import { LyricSmoke } from './LyricSmoke'
 import { UpNextList } from './UpNextList'
 import { StageField } from './StageField'
 import { CurrentCover } from './CurrentCover'
@@ -241,6 +244,7 @@ const FSProgressBar = memo(function FSProgressBar() {
             'transition-[scale] duration-3 ease-press [@media(hover:hover)]:scale-[0.6] [@media(hover:hover)]:group-hover/track:scale-100',
             dragValue !== null && '[@media(hover:hover)]:scale-110'
           )}
+          data-beam-origin=""
           style={{ left: `${playRatio * 100}%` }}
         />
       </div>
@@ -316,6 +320,8 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
         : 'portrait'
   /** 卡片叠在看哪一栏；每次打开从「接下来」（正在放的那张）开始 */
   const [cardTab, setCardTab] = useState<CardTab>('queue')
+  /** 横屏先看歌词。挑歌（卡片叠或左右分栏）从顶上的分段进去 */
+  const [widePane, setWidePane] = useState<'lyrics' | 'pick'>('lyrics')
 
   /**
    * 封面 / 歌词 / 接下来 的选择要留住：浮层关闭后就卸载，
@@ -324,11 +330,35 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
   const mobileView = useSettingsStore(s => s.playerMobileView)
   const setMobileView = useSettingsStore(s => s.setPlayerMobileView)
   const paneView: PaneView = mobileView === 'queue' ? 'queue' : 'lyrics'
+  /** 歌词页：超过 10 秒没人碰，就只留歌词 */
+  const lyricPage =
+    ((layout === 'stack' || layout === 'portrait') && mobileView === 'lyrics')
+    || ((layout === 'landscape' || layout === 'cards') && widePane === 'lyrics')
+  const [controlsOn, setControlsOn] = useState(true)
+  useEffect(() => {
+    if (!lyricPage) {
+      setControlsOn(true)
+      return
+    }
+    let timer = window.setTimeout(() => setControlsOn(false), 10_000)
+    const wake = () => {
+      setControlsOn(true)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setControlsOn(false), 10_000)
+    }
+    window.addEventListener('pointerdown', wake)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('pointerdown', wake)
+    }
+  }, [lyricPage])
 
   const coverShape = useSettingsStore(s => s.coverShape)
   const isCircle = coverShape === 'circle'
 
   const { primary: coverUrl } = useCoverUrl(currentSong ?? undefined, { size: 640 })
+  const { urls: playbackCovers } = usePlaybackCover(currentSong)
+  const lyricCover = playbackCovers[0] ?? coverUrl
   const toggleStar = useToggleStar()
   const caps = useSourceCapabilities()
   const canFavoriteCurrent = sourceSupportsFavorites(caps, currentSong?.serverId)
@@ -647,7 +677,8 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
   )
 
   const transport = (withVolume: boolean) => (
-    <div className="mx-auto flex w-full max-w-[460px] items-center justify-between gap-1" data-fs-reveal="">
+    <div className={cn('relative mx-auto w-full', withVolume ? 'max-w-[560px]' : 'max-w-[460px]')} data-fs-reveal="">
+    <div className="mx-auto flex w-full max-w-[460px] items-center justify-between gap-1">
       <Tooltip>
         <TooltipTrigger asChild>
           <button onClick={toggleShuffle} className={cn(softBtn, 'h-11 w-11')} aria-label={t('player.shuffle')} aria-pressed={shuffle}>
@@ -684,7 +715,12 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
         </TooltipTrigger>
         <TooltipContent side="top">{repeatLabel}</TooltipContent>
       </Tooltip>
-      {withVolume && volumeControl}
+    </div>
+      {withVolume && (
+        <div className="absolute right-0 top-1/2 -translate-y-1/2">
+          {volumeControl}
+        </div>
+      )}
     </div>
   )
 
@@ -753,7 +789,10 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
 
   const header = (
     <header
-      className="relative z-10 flex flex-none items-center gap-2 px-4 pb-2 regular:px-6"
+      className={cn(
+        'relative z-10 flex flex-none items-center gap-2 px-4 pb-2 transition-opacity duration-500 regular:px-6',
+        lyricPage && !controlsOn && 'pointer-events-none opacity-0'
+      )}
       style={{ paddingTop: needsTrafficLightInset ? 40 : 'calc(env(safe-area-inset-top) + 10px)' }}
       data-fs-reveal=""
       {...dragHandlers}
@@ -775,7 +814,36 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
         {/* 一列的排法：顶栏中间是封面 / 歌词 / 接下来的切换。
             横屏不放居中的东西：右栏的分段标签已经是那一栏的中轴，顶栏再居中一行就有两条轴 */}
         {layout === 'stack' || layout === 'portrait' ? viewTabs(['cover', 'lyrics', 'queue'], 'stack', true) : null}
-        {layout === 'cards' && <CardTabs value={cardTab} onChange={setCardTab} />}
+        {(layout === 'landscape' || layout === 'cards') && (
+          <div role="tablist" aria-label={t('player.nowPlaying')} className="inline-flex flex-none gap-0.5 rounded-pill bg-ink/[0.1] p-1 shadow-hair">
+            {(['lyrics', 'pick'] as const).map(view => {
+              const on = widePane === view
+              return (
+                <button
+                  key={view}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => { if (!on) { haptic('selection'); setWidePane(view) } }}
+                  className={cn(
+                    'relative isolate h-9 rounded-pill px-4 text-[13.5px] font-semibold transition-colors duration-2',
+                    on ? 'text-ink' : 'text-ink-2 hover:text-ink'
+                  )}
+                >
+                  {on && (
+                    <motion.span
+                      layoutId="fs-tab-wide"
+                      transition={SPRING_SNAPPY}
+                      aria-hidden="true"
+                      className="absolute inset-0 -z-10 rounded-pill bg-ink/[0.16]"
+                    />
+                  )}
+                  {view === 'lyrics' ? t('player.tabLyrics') : t('player.tabPick')}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <DropdownMenu>
@@ -855,14 +923,87 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
 
   /* ---------- 四种排法 ---------- */
 
+  /* 有时间轴才收成当前一句。纯文本没有「当前句」，仍用原来的列表 */
+  const syncedLyrics = !!lyrics?.lines.some(line => line.time > 0)
+  const spotlightLyrics = mobileView === 'lyrics' && syncedLyrics
+  /** 歌词页铺糊开的封面。取色失败时舞台会停在品牌青柠上，不能让歌词背后也是一块绿 */
+  const lyricBackdrop =
+    ((layout === 'stack' || layout === 'portrait') && mobileView === 'lyrics')
+    || ((layout === 'landscape' || layout === 'cards') && widePane === 'lyrics')
+
+  const spotlightStage = (wide: boolean) => (
+    <div
+      className={cn('relative z-10 flex min-h-0 w-full flex-1 flex-col', wide ? 'px-8' : 'px-6')}
+      style={{ paddingBottom: `calc(env(safe-area-inset-bottom) + ${wide ? 16 : 18}px)` }}
+    >
+      <div className="min-h-0 flex-1">
+        {syncedLyrics && lyrics ? (
+          <SpotlightLyric lines={lyrics.lines} wide={wide} className="h-full" />
+        ) : (
+          lyricsSheet('h-full')
+        )}
+      </div>
+      <div className={cn(
+        'grid transition-[grid-template-rows,opacity] duration-500',
+        controlsOn ? 'grid-rows-[1fr] opacity-100' : 'pointer-events-none grid-rows-[0fr] opacity-0'
+      )}>
+      <div className="overflow-hidden">
+      <div className="relative z-10 flex-none px-2 pt-1" data-fs-reveal="">
+        <FSProgressBar />
+      </div>
+      {/* 三个键用绝对定位钉在这一行的正中，左边封面和右边收藏不会把它挤偏 */}
+      <div className="relative z-10 flex h-[84px] flex-none items-center" data-fs-reveal="">
+        <div className="flex min-w-0 max-w-[32%] items-center gap-3">
+          <div className="cover-frame h-12 w-12 flex-none rounded-[8px] shadow-md">
+            <CoverThumb song={currentSong} />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[16px] font-semibold leading-tight text-ink">{spaceCJK(currentSong.title)}</p>
+            {currentSong.artist && (
+              <button
+                onClick={handleNavigateArtist}
+                className={cn(
+                  'mt-0.5 block max-w-full truncate text-left text-[13px] font-medium text-ink-2',
+                  currentSong.artistId ? 'hover:text-ink' : 'cursor-default'
+                )}
+              >
+                {spaceCJK(currentSong.artist)}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-7">
+          <button onClick={handlePrev} className={cn(softBtn, 'h-14 w-14 text-ink')} aria-label={t('player.previous')}>
+            <SkipBack size={28} weight="fill" />
+          </button>
+          <button
+            onClick={handleTogglePlay}
+            className={cn('play-key h-[72px] w-[72px] shadow-lg', isPlaying && streamBuffering && 'animate-buffering')}
+            aria-label={playLabel}
+            aria-busy={isPlaying && streamBuffering}
+          >
+            <PlayPauseGlyph playing={isPlaying} size={30} />
+          </button>
+          <button onClick={handleNext} className={cn(softBtn, 'h-14 w-14 text-ink')} aria-label={t('player.next')}>
+            <SkipForward size={28} weight="fill" />
+          </button>
+        </div>
+        <div className="ml-auto">{songActions}</div>
+      </div>
+      </div>
+      </div>
+    </div>
+  )
+
   let body: ReactNode
   if (layout === 'stack' || layout === 'portrait') {
     /* 手机与 iPad 竖屏同一种排法：一列，封面 / 歌词 / 接下来三选一。
-       竖屏的 iPad 宽，封面不该缩成左上角一小张去给歌词让位——它就是这一屏的主角 */
+       竖屏的 iPad 宽，封面不该缩成左上角一小张去给歌词让位——它就是这一屏的主角。
+       歌词这一页例外：当前一句大字在上，歌名贴着进度，光从进度点打上去 */
     const tall = layout === 'portrait'
     body = (
       <div
-        className={cn('relative z-10 mx-auto flex min-h-0 w-full flex-1 flex-col', tall ? 'max-w-[640px] px-8' : 'px-6')}
+        className={cn('relative z-10 mx-auto flex min-h-0 w-full flex-1 flex-col self-center', tall ? 'max-w-[640px] px-8' : 'px-6')}
         style={{ paddingBottom: `calc(env(safe-area-inset-bottom) + ${tall ? 28 : 18}px)` }}
       >
         {/* 封面在剩下的空间里居中（最多 88cqh，上下留一口气）；
@@ -871,6 +1012,41 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
           {mobileView === 'cover' ? (
             <div className="flex flex-1 items-center justify-center" {...dragHandlers}>
               {coverStage('', { width: 'min(100%, 88cqh)' })}
+            </div>
+          ) : mobileView === 'queue' ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-4" data-fs-reveal="">
+              <div className="flex items-center gap-3">
+                <div className="cover-frame h-14 w-14 flex-none rounded-[10px] shadow-md">
+                  <CoverThumb song={currentSong} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[16px] font-semibold text-ink">{spaceCJK(currentSong.title)}</p>
+                  <p className="truncate text-[14px] font-medium text-ink-2">{spaceCJK(currentSong.artist)}</p>
+                </div>
+                {songActions}
+              </div>
+              {queueList}
+            </div>
+          ) : spotlightLyrics && lyrics ? (
+            <div className="flex min-h-0 flex-1 flex-col" data-fs-reveal="">
+              <SpotlightLyric lines={lyrics.lines} className="min-h-0 flex-1" />
+              <div className={cn('flex items-end gap-3 transition-opacity duration-500', !controlsOn && 'pointer-events-none opacity-0')}>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[20px] font-semibold leading-tight text-ink">{spaceCJK(currentSong.title)}</p>
+                  {currentSong.artist && (
+                    <button
+                      onClick={handleNavigateArtist}
+                      className={cn(
+                        'mt-1 block max-w-full truncate text-left text-[14px] font-medium text-ink-2 transition-colors duration-2',
+                        currentSong.artistId ? 'hover:text-ink' : 'cursor-default'
+                      )}
+                    >
+                      {spaceCJK(currentSong.artist)}
+                    </button>
+                  )}
+                </div>
+                {songActions}
+              </div>
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col gap-4" data-fs-reveal="">
@@ -884,22 +1060,33 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
                 </div>
                 {songActions}
               </div>
-              {mobileView === 'queue' ? queueList : lyricsSheet('flex-1')}
+              {lyricsSheet('flex-1')}
             </div>
           )}
         </div>
         {mobileView === 'cover' && <div className={cn('flex-none', tall ? 'pt-8' : 'pt-5')}>{titleBlock(tall ? 'lg' : 'md')}</div>}
-        <div className={cn('flex flex-none flex-col pt-6', tall ? 'gap-5' : 'gap-4')} data-fs-reveal="">
+        <div className={cn(
+          'flex flex-none flex-col transition-[opacity,max-height] duration-500',
+          spotlightLyrics ? 'pt-3' : 'pt-6',
+          tall ? 'gap-5' : 'gap-4',
+          mobileView === 'lyrics' && !controlsOn && 'pointer-events-none max-h-0 overflow-hidden opacity-0 pt-0'
+        )} data-fs-reveal="">
           <FSProgressBar />
           {tall && quality}
           {transport(false)}
         </div>
       </div>
     )
+  } else if ((layout === 'cards' || layout === 'landscape') && widePane === 'lyrics') {
+    /* 横屏先看歌词：整屏都是这一句，光从底下的进度点打上去。平板横过来默认就是这页 */
+    body = spotlightStage(true)
   } else if (layout === 'cards') {
     /* 卡片叠：中间一叠大封面挑歌，底下一条「正在播放」——它说的永远是正在放的那首，和焦点那张分开 */
     body = (
       <div className="relative z-10 flex min-h-0 flex-1 flex-col" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
+        <div className="flex justify-center px-6 pb-2" data-fs-reveal="">
+          <CardTabs value={cardTab} onChange={setCardTab} />
+        </div>
         <div className="flex min-h-0 flex-1 flex-col" data-fs-reveal="">
           <CardStage tab={cardTab} />
         </div>
@@ -1010,11 +1197,12 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
       <motion.div
         key={layout}
         ref={contentRef}
-        className="relative flex min-h-0 flex-1 flex-col"
+        className="relative z-10 flex min-h-0 flex-1 flex-col"
         initial={settled && !reduceMotion ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.24, ease: EASE_OUT }}
       >
+        {lyricBackdrop && <LyricSmoke coverUrl={lyricCover} />}
         {layout !== 'tabletop' && header}
         {body}
       </motion.div>
