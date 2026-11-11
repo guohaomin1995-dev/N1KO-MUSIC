@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
-import { ArrowsClockwise } from '@phosphor-icons/react'
+import { ArrowsClockwise, Check, DownloadSimple } from '@phosphor-icons/react'
 import { useT } from '@/i18n'
 import type { PluginHost } from '@/plugins/host/PluginHost'
 import type { PluginQrCheckResult } from '@/plugins/types'
@@ -21,6 +21,9 @@ import { safeResourceUrl } from '@/plugins/host/whitelist'
 import { describeError } from '@/services/errors'
 import { cn } from '@/lib/utils'
 import { SegmentedPill } from '@/components/settings/primitives'
+import { isNativePlatform } from '@/lib/platform'
+import { canSaveToGallery, saveImageToGallery } from '@/services/gallery'
+import { spaceCJK } from '@/utils/cjkTypography'
 
 const POLL_INTERVAL_MS = 2000
 
@@ -228,6 +231,31 @@ export function QrLogin({
     }
   }, [phase, host, onAuthorized, t])
 
+  /*
+   * 只有一部手机：没法拿手机扫自己的屏幕。把二维码存进相册（安卓）或者截图，
+   * 再去对应 App 的扫一扫里从相册选这张图。切回来时上面的轮询会立刻补查一次。
+   */
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
+  useEffect(() => { setSaveState('idle') }, [qrImage])
+  const scanApp = activeMethod === 'wx'
+    ? t('sources.qr.app.wx')
+    : activeMethod === 'qq' || host.manifest.id === 'qqmusic'
+      ? t('sources.qr.app.qq')
+      : host.manifest.id === 'netease'
+        ? t('sources.qr.app.netease')
+        : t('sources.qr.app.generic')
+  const canSave = canSaveToGallery() && qrImage.startsWith('data:image/')
+  const saveQr = async () => {
+    if (saveState === 'saving') return
+    setSaveState('saving')
+    try {
+      await saveImageToGallery(qrImage, `${host.manifest.id}-login-${Date.now()}`)
+      setSaveState('saved')
+    } catch {
+      setSaveState('failed')
+    }
+  }
+
   const phaseText: string = {
     loading: t('sources.qr.loading'),
     waiting: qrHint || t('sources.qr.waiting'),
@@ -282,6 +310,34 @@ export function QrLogin({
       >
         {phaseText}
       </p>
+      {isNativePlatform && phase === 'waiting' && (
+        <div className="flex max-w-[300px] flex-col items-center gap-3">
+          <p className="text-center text-[13px] leading-relaxed text-ink-3">
+            {spaceCJK(t(canSave ? 'sources.qr.singlePhoneSave' : 'sources.qr.singlePhoneShot', { app: scanApp }))}
+          </p>
+          {canSave && (
+            <button
+              type="button"
+              onClick={() => void saveQr()}
+              disabled={saveState === 'saving'}
+              className={cn(
+                'press-pop inline-flex h-9 items-center gap-2 rounded-pill px-4 text-[14px] font-semibold transition-colors duration-2',
+                saveState === 'saved' ? 'bg-leaf/15 text-leaf' : 'bg-fill text-ink hover:bg-fill-2',
+                saveState === 'failed' && 'text-danger'
+              )}
+            >
+              {saveState === 'saved'
+                ? <Check size={16} weight="bold" aria-hidden="true" />
+                : <DownloadSimple size={16} weight="bold" aria-hidden="true" />}
+              {saveState === 'saved'
+                ? t('sources.qr.saved')
+                : saveState === 'failed'
+                  ? t('sources.qr.saveFailed')
+                  : t('sources.qr.save')}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
