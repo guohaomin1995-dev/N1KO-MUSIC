@@ -54,6 +54,7 @@ import { capImport, parseHistoryFile } from '@/services/historyImport'
 import { clearProfileCache } from '@/services/musicbrainz'
 import { downloadTextFile, historyToCSV, historyToJSON } from '@/services/playlistFiles'
 import pkg from '../../package.json'
+import { updateSupported, useAppUpdateStore } from '@/services/appUpdate'
 import type { ReplayGainMode } from '@/utils/replayGain'
 import {
   Dialog,
@@ -302,6 +303,8 @@ export default function Settings() {
   const { theme, setTheme } = useThemeStore()
   const { t, locale } = useT()
   const visibleName = useAppName()
+  const checkForUpdate = useAppUpdateStore(s => s.check)
+  const updateChecking = useAppUpdateStore(s => s.checking)
   const volume    = usePlayerStore(s => s.volume)
   const setVolume = usePlayerStore(s => s.setVolume)
   const {
@@ -1022,13 +1025,31 @@ export default function Settings() {
           <Row name={t('settings.about.version')}>
             <span className="num text-[15px] text-ink-2">v{pkg.version}</span>
           </Row>
+          {/* 检查更新：只有安卓 App 有（安装包在 GitHub Release 上） */}
+          {updateSupported() && (
+            <Row name={t('appUpdate.check')}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={updateChecking}
+                onClick={async () => {
+                  const outcome = await checkForUpdate(true)
+                  if (outcome === 'latest') toast({ title: t('appUpdate.latest') })
+                  if (outcome === 'failed') toast({ title: t('appUpdate.failed'), description: t('appUpdate.failedHint'), variant: 'destructive' })
+                }}
+                className="h-11 [@media(hover:hover)]:h-9"
+              >
+                {updateChecking ? t('appUpdate.checking') : t('appUpdate.check')}
+              </Button>
+            </Row>
+          )}
           <PlaybackDiagnostics />
           <Row name={t('settings.about.license')}>
             <span className="text-[15px] text-ink-2">MIT License</span>
           </Row>
           <Row name="GitHub">
             <a
-              href="https://github.com/baogutang/N1KO-MUSIC"
+              href="https://github.com/guohaomin1995-dev/N1KO-MUSIC"
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-sm text-[15px] text-leaf underline-offset-4 hover:underline"

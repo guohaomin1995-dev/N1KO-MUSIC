@@ -23,6 +23,7 @@ import { NowPlayingPanel } from './NowPlayingPanel'
 import { ShortcutSheet } from './ShortcutSheet'
 import { ConnectionBanner } from './ConnectionBanner'
 import { UpdatePrompt } from './UpdatePrompt'
+import { AppUpdateDialog } from './AppUpdateDialog'
 import { useShellLayout } from './useShellLayout'
 import { CommandPalette } from '@/components/CommandPalette'
 import { ResumeOffer } from '@/components/player/ResumeOffer'
@@ -169,6 +170,7 @@ export default function MainLayout() {
           >
             <AppToolbar scrolled={scrolled} titled={titled}>
               <UpdatePrompt />
+              <AppUpdateDialog />
               {/* 离线 / 音源登录失效 / 插件异常同走这一条 */}
               <ConnectionBanner />
               <ResumeOffer />
