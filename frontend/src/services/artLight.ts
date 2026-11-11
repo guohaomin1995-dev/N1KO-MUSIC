@@ -57,6 +57,16 @@ const memory = new Map<string, ArtPalette>()
 let diskLoaded = false
 
 function cacheKey(url: string): string {
+  // 播放条上的封面常常是整张 data URL，有几 MB。拿它当键会把调色板缓存撑爆
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    let hash = 2166136261
+    const step = Math.max(1, Math.floor(url.length / 48))
+    for (let i = 0; i < url.length; i += step) {
+      hash ^= url.charCodeAt(i)
+      hash = Math.imul(hash, 16777619)
+    }
+    return `inline:${url.length}:${hash >>> 0}`
+  }
   // 鉴权参数（t / s / token）每次都变，同一张封面不能因此算两遍
   try {
     const u = new URL(url, location.href)
@@ -113,7 +123,8 @@ export function peekPalette(url: string | undefined): ArtPalette | undefined {
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    img.crossOrigin = 'anonymous'
+    // data / blob 是本页自己的图，加了跨域标记有的浏览器会直接加载失败
+    if (!url.startsWith('data:') && !url.startsWith('blob:')) img.crossOrigin = 'anonymous'
     img.decoding = 'async'
     img.onload = () => resolve(img)
     img.onerror = () => reject(new Error('cover load failed'))
@@ -196,11 +207,15 @@ function round(v: number, digits = 1) {
   return Math.round(v * f) / f
 }
 
-const inflight = new Map<string, Promise<ArtPalette>>()
+const inflight = new Map<string, Promise<ArtPalette | null>>()
 
-/** 取一张封面的调色板；失败时返回场灯，永不抛错 */
-export function getPalette(url: string | undefined): Promise<ArtPalette> {
-  if (!url) return Promise.resolve(HOUSE_LIGHTS)
+/**
+ * 取一张封面的调色板。
+ * 图加载失败或画布读不到像素时返回 null，调用方再试下一张。
+ * 不要在失败时返回场灯：场灯是青柠，和「这张图是绿色的」分不开。
+ */
+export function getPalette(url: string | undefined): Promise<ArtPalette | null> {
+  if (!url) return Promise.resolve(null)
   loadDisk()
   const key = cacheKey(url)
   const hit = memory.get(key)
@@ -215,15 +230,15 @@ export function getPalette(url: string | undefined): Promise<ArtPalette> {
       canvas.width = SAMPLE
       canvas.height = SAMPLE
       const ctx = canvas.getContext('2d', { willReadFrequently: true })
-      if (!ctx) return HOUSE_LIGHTS
+      if (!ctx) return null
       ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE)
       const { data } = ctx.getImageData(0, 0, SAMPLE, SAMPLE)
       const palette = paletteFromPixels(data)
       remember(key, palette)
       return palette
     } catch {
-      // 跨域污染、404、解码失败：房间保持场灯
-      return HOUSE_LIGHTS
+      // 跨域污染、404、解码失败
+      return null
     } finally {
       inflight.delete(key)
     }

@@ -19,7 +19,7 @@ export function useCoverPalette(url: string | undefined): ArtPalette | undefined
     }
     let alive = true
     void getPalette(url).then(p => {
-      if (alive) setPalette(p)
+      if (alive && p) setPalette(p)
     })
     return () => {
       alive = false
