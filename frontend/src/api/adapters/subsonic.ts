@@ -6,6 +6,7 @@
  */
 
 import axios, { type AxiosInstance } from 'axios'
+import { Capacitor, CapacitorHttp } from '@capacitor/core'
 import { parseLrc } from '@/utils/lrc'
 import { httpStatus, pluginErrorCode } from '@/services/errors'
 import md5 from 'md5'
@@ -36,6 +37,17 @@ import type {
 const CLIENT_NAME = 'X-MUSIC'
 
 /**
+ * 网页在 https://localhost，直接播 http 的音频会被当成混合内容拦掉，
+ * 播放器只能报错误码 4。本机转发和 WebDAV 用的是同一个口。
+ */
+const LOCAL_MEDIA_PROXY = 'http://127.0.0.1:17321/play?u='
+
+function playableUrl(remote: string): string {
+  if (!Capacitor.isNativePlatform() || !/^https?:\/\//i.test(remote)) return remote
+  return LOCAL_MEDIA_PROXY + encodeURIComponent(remote)
+}
+
+/**
  * 每次认证生成一个新的随机 salt。
  * 旧实现用 Math.random()，不是加密安全随机源，削弱了 token 认证本身的意义。
  */
@@ -48,6 +60,51 @@ function randomSalt(): string {
     for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256)
   }
   return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Subsonic 的多值参数必须是 id=a&id=b，不能变成 id[]=a。 */
+function serializeParams(params: Record<string, unknown>): string {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null) continue
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item != null) query.append(key, String(item))
+      }
+    } else {
+      query.append(key, String(value))
+    }
+  }
+  return query.toString()
+}
+
+/**
+ * 平板页面跑在 https://localhost，直接请求 http 的自建服务器会被跨域拦住，
+ * axios 只报一句 Network Error。原生请求不经过网页的跨域检查。
+ */
+async function nativeSubsonic(
+  method: 'GET' | 'POST',
+  url: string,
+): Promise<{ status: number; data: SubsonicResponse<unknown> | undefined }> {
+  const res = await CapacitorHttp.request({
+    url,
+    method,
+    responseType: 'json',
+    connectTimeout: 30000,
+    readTimeout: 30000,
+  })
+  let data = res.data as SubsonicResponse<unknown> | string | undefined
+  if (typeof data === 'string' && data) {
+    try {
+      data = JSON.parse(data) as SubsonicResponse<unknown>
+    } catch {
+      data = undefined
+    }
+  }
+  return {
+    status: res.status,
+    data: data && typeof data === 'object' ? data : undefined,
+  }
 }
 
 function numberOr(value: unknown): number | undefined {
@@ -213,30 +270,37 @@ export class SubsonicAdapter implements MusicServerAdapter {
    * signal 用于在组件卸载 / 快速切页时取消在途请求——此前完全没有取消能力，
    * 连点搜索会堆积请求，后到的旧响应还可能覆盖新结果。
    */
+  private restUrl(endpoint: string, params: Record<string, unknown>): string {
+    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    return `${this.baseUrl}/rest${path}?${serializeParams(this.buildParams(params))}`
+  }
+
   private async request<T>(
     endpoint: string,
     params: Record<string, unknown> = {},
     signal?: AbortSignal
   ): Promise<T> {
-    const response = await this.client.get<SubsonicResponse<T>>(endpoint, {
-      params: this.buildParams(params),
-      signal,
-    })
-    const data = response.data['subsonic-response']
-    if (data.status === 'failed') {
-      throw SubsonicAdapter.subsonicFailure(data.error)
+    const data = Capacitor.isNativePlatform()
+      ? (await nativeSubsonic('GET', this.restUrl(endpoint, params))).data?.['subsonic-response']
+      : (await this.client.get<SubsonicResponse<T>>(endpoint, {
+          params: this.buildParams(params),
+          signal,
+        })).data['subsonic-response']
+    if (!data || data.status === 'failed') {
+      throw SubsonicAdapter.subsonicFailure(data?.error)
     }
     return data as T
   }
 
   /** 发送 Subsonic API 请求（POST，用于修改类操作） */
   private async postRequest<T>(endpoint: string, params: Record<string, unknown> = {}): Promise<T> {
-    const response = await this.client.post<SubsonicResponse<T>>(endpoint, null, {
-      params: this.buildParams(params),
-    })
-    const data = response.data['subsonic-response']
-    if (data.status === 'failed') {
-      throw SubsonicAdapter.subsonicFailure(data.error)
+    const data = Capacitor.isNativePlatform()
+      ? (await nativeSubsonic('POST', this.restUrl(endpoint, params))).data?.['subsonic-response']
+      : (await this.client.post<SubsonicResponse<T>>(endpoint, null, {
+          params: this.buildParams(params),
+        })).data['subsonic-response']
+    if (!data || data.status === 'failed') {
+      throw SubsonicAdapter.subsonicFailure(data?.error)
     }
     return data as T
   }
@@ -255,15 +319,15 @@ export class SubsonicAdapter implements MusicServerAdapter {
     const testUrl = url.replace(/\/$/, '')
 
     try {
-      const resp = await axios.get(`${testUrl}/rest/ping`, {
-        params: { u: username, t: token, s: salt, v: '1.16.1', c: CLIENT_NAME, f: 'json' },
-        timeout: 10000,
-      })
-      const data = resp.data['subsonic-response']
-      if (data.status === 'ok') {
+      const params = { u: username, t: token, s: salt, v: '1.16.1', c: CLIENT_NAME, f: 'json' }
+      const resp = Capacitor.isNativePlatform()
+        ? await nativeSubsonic('GET', `${testUrl}/rest/ping?${serializeParams(params)}`)
+        : await axios.get(`${testUrl}/rest/ping`, { params, timeout: 10000 })
+      const data = resp.data?.['subsonic-response']
+      if (data?.status === 'ok') {
         return { success: true, token, salt, username }
       }
-      return { success: false, token: '', error: data.error?.message || 'Authentication failed' }
+      return { success: false, token: '', error: data?.error?.message || 'Authentication failed' }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Connection failed'
       return { success: false, token: '', error: message }
@@ -276,10 +340,12 @@ export class SubsonicAdapter implements MusicServerAdapter {
    */
   async diagnose(): Promise<'ok' | 'unauthorized' | 'unreachable'> {
     try {
-      const response = await this.client.get<SubsonicResponse<unknown>>('/ping', {
-        params: this.buildParams({}),
-        validateStatus: () => true,
-      })
+      const response = Capacitor.isNativePlatform()
+        ? await nativeSubsonic('GET', this.restUrl('/ping', {}))
+        : await this.client.get<SubsonicResponse<unknown>>('/ping', {
+            params: this.buildParams({}),
+            validateStatus: () => true,
+          })
       if (response.status === 401 || response.status === 403) return 'unauthorized'
       if (response.status >= 400) return 'unreachable'
       const data = response.data?.['subsonic-response']
@@ -473,7 +539,7 @@ export class SubsonicAdapter implements MusicServerAdapter {
     }
 
     const params = new URLSearchParams(streamParams)
-    return `${this.baseUrl}/rest/stream?${params.toString()}`
+    return playableUrl(`${this.baseUrl}/rest/stream?${params.toString()}`)
   }
 
   /**
@@ -517,7 +583,7 @@ export class SubsonicAdapter implements MusicServerAdapter {
         Object.entries(authParams).map(([k, v]) => [k, String(v)])
       ),
     })
-    return `${this.baseUrl}/rest/getCoverArt?${params.toString()}`
+    return playableUrl(`${this.baseUrl}/rest/getCoverArt?${params.toString()}`)
   }
 
   async getLyrics(songId: string, title?: string, artist?: string): Promise<Lyrics | null> {
@@ -973,11 +1039,13 @@ export class SubsonicAdapter implements MusicServerAdapter {
    * 因此这里绕开 request()——它把 501 和断网都变成同一种 Error，分不出来。
    */
   async probeShares(): Promise<boolean> {
-    const response = await this.client.get<SubsonicResponse<unknown>>('/getShares', {
-      params: this.buildParams({}),
-      // 501 要作为「答案」拿到手，而不是变成异常
-      validateStatus: () => true,
-    })
+    const response = Capacitor.isNativePlatform()
+      ? await nativeSubsonic('GET', this.restUrl('/getShares', {}))
+      : await this.client.get<SubsonicResponse<unknown>>('/getShares', {
+          params: this.buildParams({}),
+          // 501 要作为「答案」拿到手，而不是变成异常
+          validateStatus: () => true,
+        })
     // 这两个状态码的含义是「这个端点不在这台服务器上」，是确定的否定答案
     if (response.status === 501 || response.status === 404) return false
     if (response.status >= 400) {

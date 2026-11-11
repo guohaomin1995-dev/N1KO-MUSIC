@@ -20,15 +20,45 @@ import okhttp3.ResponseBody;
  * 播放地址改成 127.0.0.1，由这里补上认证再把音频流转回去。
  */
 final class WebDavProxy {
+    /** 固定端口，好让 Subsonic 的播放和封面地址在拼出来时就指向本机。 */
+    static final int PREFERRED_PORT = 17321;
     private static volatile int port = -1;
+    private static final java.util.Set<String> extraBases = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
     private WebDavProxy() {}
+
+    static void allowBase(String base) {
+        if (base == null) return;
+        String trimmed = base.trim();
+        while (trimmed.endsWith("/")) trimmed = trimmed.substring(0, trimmed.length() - 1);
+        if (!trimmed.isEmpty()) extraBases.add(trimmed);
+    }
+
+    static boolean allowsTarget(String target) {
+        if (WebDavAuth.allows(target)) return true;
+        if (target == null) return false;
+        String path;
+        try {
+            path = new java.net.URL(target).getPath();
+        } catch (Exception e) {
+            return false;
+        }
+        if (path.startsWith("/rest/stream") || path.startsWith("/rest/getCoverArt") || path.startsWith("/rest/getAvatar")) {
+            return target.startsWith("http://") || target.startsWith("https://");
+        }
+        synchronized (extraBases) {
+            for (String base : extraBases) {
+                if (target.equals(base) || target.startsWith(base + "/") || target.startsWith(base + "?")) return true;
+            }
+        }
+        return false;
+    }
 
     static int ensureStarted() throws IOException {
         if (port > 0) return port;
         synchronized (WebDavProxy.class) {
             if (port > 0) return port;
-            ServerSocket server = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
+            ServerSocket server = new ServerSocket(PREFERRED_PORT, 50, InetAddress.getByName("127.0.0.1"));
             port = server.getLocalPort();
             Thread thread = new Thread(() -> acceptLoop(server), "webdav-proxy");
             thread.setDaemon(true);
@@ -68,11 +98,13 @@ final class WebDavProxy {
                 return;
             }
             String target = query(path, "u");
-            if (target == null || !WebDavAuth.allows(target)) {
+            if (target == null || !allowsTarget(target)) {
                 writeStatus(socket, 403, "text/plain", "Forbidden", null, null);
                 return;
             }
-            upstream = WebDavAuth.openAuthorized(target, range);
+            upstream = WebDavAuth.allows(target)
+                ? WebDavAuth.openAuthorized(target, range)
+                : WebDavAuth.openDirect(target, range);
             int status = upstream.code();
             ResponseBody body = upstream.body();
             String mime = mimeOf(upstream.header("Content-Type"), target);
@@ -84,6 +116,7 @@ final class WebDavProxy {
             head.append("HTTP/1.1 ").append(status).append(' ').append(reason).append("\r\n");
             head.append("Content-Type: ").append(mime).append("\r\n");
             head.append("Accept-Ranges: bytes\r\n");
+            head.append("Access-Control-Allow-Origin: *\r\n");
             head.append("Connection: close\r\n");
             if (length != null) head.append("Content-Length: ").append(length).append("\r\n");
             if (contentRange != null) head.append("Content-Range: ").append(contentRange).append("\r\n");

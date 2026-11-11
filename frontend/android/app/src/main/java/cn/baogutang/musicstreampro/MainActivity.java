@@ -4,12 +4,18 @@ import android.os.Build;
 import android.os.Bundle;
 import android.webkit.WebView;
 
+import java.io.IOException;
+
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(WebDavPlugin.class);
+        try {
+            WebDavProxy.ensureStarted();
+        } catch (IOException ignored) {
+        }
         super.onCreate(savedInstanceState);
         installWebDavClient();
     }

@@ -17,6 +17,12 @@ public class WebDavPlugin extends Plugin {
         WebDavFlacPlayer.setSink((event, data) -> notifyListeners(event, data));
     }
     @PluginMethod
+    public void allowBase(PluginCall call) {
+        WebDavProxy.allowBase(call.getString("base"));
+        call.resolve();
+    }
+
+    @PluginMethod
     public void configure(PluginCall call) {
         String base = call.getString("baseUrl");
         String username = call.getString("username");
@@ -92,7 +98,7 @@ public class WebDavPlugin extends Plugin {
     @PluginMethod
     public void streamUrl(PluginCall call) {
         String target = call.getString("target");
-        if (target == null || !WebDavAuth.allows(target)) {
+        if (target == null || !WebDavProxy.allowsTarget(target)) {
             call.reject("无法播放这个地址");
             return;
         }

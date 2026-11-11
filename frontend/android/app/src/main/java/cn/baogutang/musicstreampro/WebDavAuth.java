@@ -116,10 +116,19 @@ final class WebDavAuth {
     /** 播歌用。调用方负责关闭 Response。 */
     static Response openAuthorized(String url, String range) throws IOException {
         if (!allows(url)) throw new IOException("地址不在已连接的 WebDAV 里");
+        return openStream(url, range, true);
+    }
+
+    /** Subsonic 的账号在地址参数里，不能再套一层 WebDAV 的 Basic。 */
+    static Response openDirect(String url, String range) throws IOException {
+        return openStream(url, range, false);
+    }
+
+    private static Response openStream(String url, String range, boolean authorize) throws IOException {
         Request.Builder builder = new Request.Builder()
             .url(url)
-            .header("Authorization", basic())
             .header("User-Agent", "X-MUSIC");
+        if (authorize) builder.header("Authorization", basic());
         if (range != null && !range.isEmpty()) builder.header("Range", range);
         return STREAM.newCall(builder.build()).execute();
     }
