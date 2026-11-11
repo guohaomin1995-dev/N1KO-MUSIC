@@ -6,14 +6,15 @@
  * 以前多源是一节接一节往下排，网易云收藏几百首，要划很久才看得到 QQ 那一节。
  */
 
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Play } from '@phosphor-icons/react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { SPRING_SNAPPY } from '@/lib/motion'
 import { useStarred } from '@/hooks/useServerQueries'
-import { useSourceStarred } from '@/hooks/useSourceQueries'
+import { usePlaybackPriorityOrder, useSourceStarred } from '@/hooks/useSourceQueries'
+import { mergeSongs } from '@/plugins/match'
 import { playAllInOrder } from '@/utils/playActions'
 import { SongList } from '@/components/music/SongList'
 import { AlbumCard } from '@/components/music/AlbumCard'
@@ -28,6 +29,9 @@ import { useT } from '@/i18n'
 import { sourceParam } from '@/lib/sourceParam'
 
 type FavTab = 'songs' | 'albums'
+
+/** 「全部」tab 的 id（?src=all）：所有音源的收藏合在一起 */
+const ALL_TAB = 'all'
 
 /**
  * 分段控件的一格：看起来 36px，触点用 ::before 向上下各多出 4px（落在轨道的内边距里），凑足 44px。
@@ -63,13 +67,58 @@ export default function Favorites() {
   const singleAlbums = single.data?.albums ?? []
 
   /* 选中的音源：地址栏 ?src= 指着的那个；没指或者指的源不在了，落到第一个 */
-  const sourceTabItems = starredGroups.map(g => ({
-    id: g.serverId,
-    label: shortSourceName(g.name),
-    pluginId: g.pluginId,
-    loading: g.status !== 'success',
-    count: tab === 'songs' ? g.data?.songs.length : g.data?.albums.length,
-  }))
+  /*
+   * 「全部」：各音源的收藏合成一张单子。同一首歌在几家都收藏了只留一条
+   * （与搜索页「全部」同一套 mergeSongs：ISRC，或者歌名 + 歌手相同且时长差 ≤ 2 秒），
+   * 代表版本按播放优先序取（默认 NAS 在前）。收藏没有时间，按音源优先序排。
+   * 慢的源还在加载时先拼已经到的，不等最慢的那家。
+   */
+  const priorityOrder = usePlaybackPriorityOrder()
+  /* 分组数组每次渲染都是新的：按「状态 + 条数 + 被取消收藏的条数」算一个指纹再重算合并，
+     上千首的合并不必每次渲染都跑一遍；取消收藏的乐观更新也会让指纹变 */
+  const groupsRef = useRef(starredGroups)
+  groupsRef.current = starredGroups
+  const groupsKey = starredGroups
+    .map(g => `${g.serverId}:${g.status}:${g.data ? `${g.data.songs.length}/${g.data.albums.length}/${g.data.songs.filter(s => s.starred === false).length}` : '-'}`)
+    .join('|')
+  const orderKey = priorityOrder.map(s => s.serverId).join('|')
+  const allView = useMemo(() => {
+    const groups = groupsRef.current
+    const loaded = groups.filter(g => g.status === 'success' && g.data)
+    const order = orderKey ? orderKey.split('|') : []
+    const merged = mergeSongs(loaded.map(g => ({ serverId: g.serverId, songs: g.data!.songs })), order)
+    const rank = (id: string) => { const i = order.indexOf(id); return i < 0 ? order.length : i }
+    const albums = [...loaded]
+      .sort((a, b) => rank(a.serverId) - rank(b.serverId))
+      .flatMap(g => g.data!.albums)
+    return {
+      songs: merged.map(m => m.song),
+      albums,
+      loading: groups.some(g => g.status === 'loading'),
+      status: loaded.length
+        ? 'success' as const
+        : groups.every(g => g.status === 'error') ? 'error' as const : 'loading' as const,
+    }
+    // groupsKey / orderKey 就是这两份数据的指纹，数据本身从 ref 里取
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupsKey, orderKey])
+
+  const sourceTabItems = [
+    {
+      id: ALL_TAB,
+      label: t('search.viewAll'),
+      all: true,
+      loading: allView.loading,
+      count: tab === 'songs' ? allView.songs.length : allView.albums.length,
+    },
+    ...starredGroups.map(g => ({
+      id: g.serverId,
+      label: shortSourceName(g.name),
+      pluginId: g.pluginId,
+      loading: g.status !== 'success',
+      count: tab === 'songs' ? g.data?.songs.length : g.data?.albums.length,
+    })),
+  ]
   const selectedId = tabbed ? defaultTabId(sourceTabItems, srcFilter) : (srcFilter ?? '')
   const selectSource = (id: string) => {
     setSearchParams(prev => {
@@ -79,8 +128,11 @@ export default function Favorites() {
     }, { replace: true })
   }
 
-  const selectedGroup = tabbed ? starredGroups.find(g => g.serverId === selectedId) : undefined
-  const section = selectedGroup
+  const showAll = tabbed && selectedId === ALL_TAB
+  const selectedGroup = tabbed && !showAll ? starredGroups.find(g => g.serverId === selectedId) : undefined
+  const section = showAll
+    ? { serverId: ALL_TAB, status: allView.status, songs: allView.songs, albums: allView.albums }
+    : selectedGroup
     ? {
         serverId: selectedGroup.serverId,
         status: selectedGroup.status,
@@ -177,7 +229,19 @@ export default function Favorites() {
       <div className="mt-6">
         <SourceTabPanel tabKey={`${section.serverId}:${tab}`}>
           <section className="mb-10">
-            {section.status !== 'success' && (
+            {showAll && section.status === 'error' && (
+              <EmptyState
+                mascot="maodou-surprised"
+                title={t('sources.allFailed.title')}
+                description={t('sources.allFailed.description')}
+                action={{
+                  label: t('action.retry'),
+                  onClick: () => void queryClient.invalidateQueries({ predicate: query => query.queryKey[1] === 'starred' }),
+                }}
+              />
+            )}
+            {showAll && section.status === 'loading' && <SongRowsSkeleton rows={8} />}
+            {!showAll && section.status !== 'success' && (
               <SourceGroupState
                 serverId={section.serverId}
                 status={section.status}
@@ -196,7 +260,8 @@ export default function Favorites() {
                   description={t('empty.favoriteSongs.description')}
                 />
               ) : (
-                <SongList songs={section.songs} showAlbum />
+                /* 「全部」里每行带来源小图标，看得出这首是哪家的收藏 */
+                <SongList songs={section.songs} showAlbum sourceBadge={showAll} />
               )
             )}
             {section.status === 'success' && tab === 'albums' && (

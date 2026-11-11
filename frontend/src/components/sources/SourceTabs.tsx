@@ -17,7 +17,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { Database, HardDrive } from '@phosphor-icons/react'
+import { Database, HardDrive, Stack } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { haptic } from '@/lib/haptics'
 import { SourceLogo, pluginLogoSrc } from '@/components/sources/SourceBadge'
@@ -33,6 +33,8 @@ export interface SourceTabItem {
   pluginId?: string
   /** 本地混合歌单 */
   local?: boolean
+  /** 「全部」：所有音源合在一起 */
+  all?: boolean
   /** 数量；还没加载完时不给 */
   count?: number
   loading?: boolean
@@ -61,6 +63,7 @@ export function shortSourceName(name: string): string {
 }
 
 function TabIcon({ item, active }: { item: SourceTabItem; active: boolean }) {
+  if (item.all) return <Stack size={16} weight={active ? 'fill' : 'regular'} aria-hidden="true" />
   if (item.local) return <HardDrive size={16} weight={active ? 'fill' : 'regular'} aria-hidden="true" />
   if (pluginLogoSrc(item.pluginId)) return <SourceLogo pluginId={item.pluginId} size={18} />
   return <Database size={16} weight={active ? 'fill' : 'regular'} aria-hidden="true" />
