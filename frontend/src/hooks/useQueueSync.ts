@@ -32,6 +32,60 @@ export interface RemoteQueueOffer {
 const MIN_RESUME_POSITION_MS = 10_000
 
 /**
+ * 本机最后一次写回服务器的续播点。
+ *
+ * 服务器上的续播记录不一定来自「另一台设备」：本机只在播主库（NAS）的歌时写，
+ * 改听网易云 / QQ 之后就不再写了，服务器上留着的还是本机最后那首 NAS 歌。
+ * 下次打开读回来，和正在放的对不上，就被当成别处的进度提示「从别处继续」——
+ * 其实是自己的旧记录。记下自己写过什么，读回来是自己的就不提示。
+ */
+const LAST_SAVE_KEY = 'msp-queue-last-save'
+/** 自己写的位置是 5 秒取整去重的，比对时留同样的余量 */
+const OWN_SAVE_TOLERANCE_MS = 6_000
+
+export interface OwnQueueSave {
+  serverId: string
+  currentId: string
+  positionMs: number
+}
+
+function rememberOwnSave(save: OwnQueueSave): void {
+  try {
+    localStorage.setItem(LAST_SAVE_KEY, JSON.stringify(save))
+  } catch {
+    // 存不下只是可能多提示一次，不影响同步本身
+  }
+}
+
+function readOwnSave(): OwnQueueSave | null {
+  try {
+    const raw = localStorage.getItem(LAST_SAVE_KEY)
+    return raw ? (JSON.parse(raw) as OwnQueueSave) : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 服务器上这份续播点值不值得提示（纯函数，测试覆盖）。
+ * 不提示：进度太短（几秒钟谈不上「接着听」）、本机正在放同一首且位置相近、就是本机自己写的那份。
+ */
+export function shouldOfferRemoteQueue(
+  remote: { currentId?: string; positionMs: number; songs: unknown[] },
+  local: { currentId?: string; positionMs: number },
+  ownSave: OwnQueueSave | null,
+  serverId: string
+): boolean {
+  if (!remote.songs.length) return false
+  if (remote.positionMs < MIN_RESUME_POSITION_MS) return false
+  if (local.currentId && local.currentId === remote.currentId
+    && Math.abs(local.positionMs - remote.positionMs) < MIN_RESUME_POSITION_MS) return false
+  if (ownSave && ownSave.serverId === serverId && ownSave.currentId === remote.currentId
+    && Math.abs(ownSave.positionMs - remote.positionMs) <= OWN_SAVE_TOLERANCE_MS) return false
+  return true
+}
+
+/**
  * 从（可能混源的）队列里挑出能写回主库的那一段（纯函数，测试覆盖）。
  *
  * savePlayQueue 存的是一串**主库自己的曲目 id**。混源之后有两件事必须挡住：
@@ -102,6 +156,7 @@ export function useQueueSync() {
       if (payload === lastPayloadRef.current) return
       lastPayloadRef.current = payload
       lastSavedRef.current = Date.now()
+      rememberOwnSave({ serverId: activeServerId, currentId, positionMs })
       adapter.savePlayQueue?.(ids, currentId, positionMs).catch(() => {
         // 同步失败不该影响播放，也不提示——这是后台行为
       })
@@ -142,14 +197,15 @@ export function useRemoteQueueOffer() {
     let cancelled = false
     adapter.getPlayQueue()
       .then(remote => {
-        if (cancelled || !remote?.songs.length) return
+        if (cancelled || !remote) return
         const local = usePlayerStore.getState()
-        // 本地已经在放同一首且位置接近，就没有「从别处继续」这回事
-        const sameSong = local.currentSong?.id === remote.currentId
-        const localMs = (local.currentTime || 0) * 1000
-        if (sameSong && Math.abs(localMs - remote.positionMs) < MIN_RESUME_POSITION_MS) return
-        if (remote.positionMs < MIN_RESUME_POSITION_MS && sameSong) return
-        setOffer(remote)
+        const worthIt = shouldOfferRemoteQueue(
+          remote,
+          { currentId: local.currentSong?.id, positionMs: (local.currentTime || 0) * 1000 },
+          readOwnSave(),
+          activeServerId
+        )
+        if (worthIt) setOffer(remote)
       })
       .catch(() => {})
 
@@ -184,6 +240,19 @@ export function useRemoteQueueOffer() {
   }, [offer])
 
   const dismiss = useCallback(() => setOffer(null), [])
+
+  /*
+   * 提示出来之后，只要开始播放或者换了歌，就说明已经在听别的了：收起。
+   * 以前它只在启动时判断一次，之后除非手动点 ×，会一直挂在顶上。
+   */
+  useEffect(() => {
+    if (!offer) return
+    return usePlayerStore.subscribe((state, prev) => {
+      const startedPlaying = state.isPlaying && !prev.isPlaying
+      const switchedSong = state.currentSong?.id !== prev.currentSong?.id
+      if (startedPlaying || switchedSong) setOffer(null)
+    })
+  }, [offer])
 
   return { offer, accept, dismiss }
 }

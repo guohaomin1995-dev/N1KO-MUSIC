@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { Song } from '@/api/types'
-import { syncableQueueSlice } from './useQueueSync'
+import { shouldOfferRemoteQueue, syncableQueueSlice } from './useQueueSync'
 
 const NAS = 'nas'
 const WY = 'wy'
@@ -61,5 +61,32 @@ describe('syncableQueueSlice', () => {
     expect(result?.ids[0]).toBe('s80')
     expect(result?.ids).toHaveLength(50)
     expect(result?.currentId).toBe('s100')
+  })
+})
+
+describe('shouldOfferRemoteQueue（「从别处继续」提不提示）', () => {
+  const remote = { currentId: 'r1', positionMs: 95_000, songs: [{}] }
+  const nothing = { positionMs: 0 }
+
+  it('别处真的听到一半：提示', () => {
+    expect(shouldOfferRemoteQueue(remote, nothing, null, NAS)).toBe(true)
+  })
+
+  it('进度只有几秒：不提示（谈不上接着听）', () => {
+    expect(shouldOfferRemoteQueue({ ...remote, positionMs: 2_000 }, nothing, null, NAS)).toBe(false)
+  })
+
+  it('本机正在放同一首、位置相近：不提示', () => {
+    expect(shouldOfferRemoteQueue(remote, { currentId: 'r1', positionMs: 90_000 }, null, NAS)).toBe(false)
+  })
+
+  it('就是本机自己最后写回去的那份：不提示（改听网易云之后留下的旧记录）', () => {
+    const own = { serverId: NAS, currentId: 'r1', positionMs: 93_000 }
+    expect(shouldOfferRemoteQueue(remote, { currentId: 'wy-song', positionMs: 10_000 }, own, NAS)).toBe(false)
+  })
+
+  it('本机写的是另一首、或者是另一台服务器的：照旧提示', () => {
+    expect(shouldOfferRemoteQueue(remote, nothing, { serverId: NAS, currentId: 'x', positionMs: 95_000 }, NAS)).toBe(true)
+    expect(shouldOfferRemoteQueue(remote, nothing, { serverId: 'other', currentId: 'r1', positionMs: 95_000 }, NAS)).toBe(true)
   })
 })
