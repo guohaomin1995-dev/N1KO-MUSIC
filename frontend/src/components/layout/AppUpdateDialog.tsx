@@ -10,7 +10,36 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
 import { useT } from '@/i18n'
+import { cn } from '@/lib/utils'
 import { CURRENT_VERSION, openInBrowser, updateSupported, useAppUpdateStore } from '@/services/appUpdate'
+
+/**
+ * 更新说明是 GitHub Release 的 Markdown。只认最常用的两种写法：
+ * 「## 标题」加粗、「- 列表项」变圆点；其余按普通段落，不引入整套 Markdown 渲染。
+ */
+function ReleaseNotes({ text }: { text: string }) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+  return (
+    <div className="space-y-1.5">
+      {lines.map((line, i) => {
+        const heading = line.match(/^#{1,6}\s+(.*)$/)
+        if (heading) {
+          return <p key={i} className={cn('font-semibold text-ink', i > 0 && 'pt-2')}>{heading[1]}</p>
+        }
+        const item = line.match(/^[-*]\s+(.*)$/)
+        if (item) {
+          return (
+            <p key={i} className="flex gap-2">
+              <span aria-hidden="true" className="text-leaf">•</span>
+              <span>{item[1]}</span>
+            </p>
+          )
+        }
+        return <p key={i}>{line}</p>
+      })}
+    </div>
+  )
+}
 
 function formatSize(bytes?: number): string {
   if (!bytes) return ''
@@ -51,8 +80,8 @@ export function AppUpdateDialog() {
         </DialogHeader>
 
         {release.notes && (
-          <div className="max-h-[38vh] overflow-y-auto whitespace-pre-wrap rounded-md bg-fill px-4 py-3 text-[14px] leading-relaxed text-ink-2">
-            {release.notes}
+          <div className="max-h-[38vh] overflow-y-auto rounded-md bg-fill px-4 py-3 text-[14px] leading-relaxed text-ink-2">
+            <ReleaseNotes text={release.notes} />
           </div>
         )}
 
