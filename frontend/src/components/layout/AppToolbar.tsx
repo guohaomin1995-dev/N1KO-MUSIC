@@ -17,7 +17,7 @@ import {
   SidebarSimple, SignOut, SquareHalf, SteeringWheel, Sun,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
-import { needsTrafficLightInset } from '@/lib/platform'
+import { needsTrafficLightInset, type WindowClass } from '@/lib/platform'
 import { useThemeStore } from '@/store/themeStore'
 import { useServerStore } from '@/store/serverStore'
 import { usePlayerStore } from '@/store/playerStore'
@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { prefetchRoute } from '@/routes/lazyRoutes'
 import { useT } from '@/i18n'
-import { MORE_NAV } from './navItems'
+import { moreNavFor } from './navItems'
 import { sectionKeyFor } from './sections'
 import { useShellLayout } from './useShellLayout'
 
@@ -46,7 +46,7 @@ function historyIndex(): number {
   return typeof idx === 'number' ? idx : 0
 }
 
-function MoreMenu() {
+function MoreMenu({ wc }: { wc: WindowClass }) {
   const { t } = useT()
   const navigate = useNavigate()
   const resolvedTheme = useThemeStore(s => s.resolvedTheme)
@@ -73,7 +73,7 @@ function MoreMenu() {
               <DropdownMenuSeparator />
             </>
           )}
-          {MORE_NAV.map(({ to, labelKey, icon: Icon }) => (
+          {moreNavFor(wc).map(({ to, labelKey, icon: Icon }) => (
             <DropdownMenuItem
               key={to}
               onMouseEnter={() => prefetchRoute(to)}
@@ -194,7 +194,7 @@ export function AppToolbar({ scrolled, titled, children }: { scrolled: boolean; 
               <SquareHalf size={20} />
             </button>
           ) : (
-            <MoreMenu />
+            <MoreMenu wc={wc} />
           )}
         </div>
       </div>

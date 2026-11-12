@@ -6,7 +6,7 @@
  * 人不知道自己在哪。宽档侧栏则要精确到分类。
  */
 import { describe, expect, it } from 'vitest'
-import { PRIMARY_NAV, SIDEBAR_DISCOVER, SIDEBAR_LIBRARY, MORE_NAV, isNavActive } from './navItems'
+import { PRIMARY_NAV, RAIL_NAV, SIDEBAR_DISCOVER, SIDEBAR_LIBRARY, MORE_NAV, isNavActive, moreNavFor } from './navItems'
 
 const active = (items: typeof PRIMARY_NAV, path: string) =>
   items.filter(item => isNavActive(item, path)).map(item => item.to)
@@ -60,5 +60,35 @@ describe('中、窄两档放不下的入口一个都不丢', () => {
       .filter(to => !['/library', '/albums', '/artists', '/playlists'].includes(to))
       .filter(to => !primary.has(to))
     expect(sidebarOnly.filter(to => !more.has(to))).toEqual([])
+  })
+})
+
+describe('中档竖导航条（竖屏平板、分屏）', () => {
+  it('每个页面入口都摆在导航条上，分组、顺序同侧栏', () => {
+    expect(RAIL_NAV.map(i => i.to)).toEqual([
+      '/', '/recommendations', '/issue', '/podcasts', '/search',
+      '/library', '/favorites', '/history', '/stats',
+    ])
+    expect(active(RAIL_NAV, '/podcasts/wy/42')).toEqual(['/podcasts'])
+    expect(active(RAIL_NAV, '/albums/al-1')).toEqual(['/library'])
+  })
+
+  it('收藏、最近播放、统计只亮自己那格，不连带「音乐库」一起亮', () => {
+    expect(active(RAIL_NAV, '/favorites')).toEqual(['/favorites'])
+    expect(active(RAIL_NAV, '/history')).toEqual(['/history'])
+    expect(active(RAIL_NAV, '/stats')).toEqual(['/stats'])
+  })
+
+  it('中档「更多」菜单里不再藏页面入口；窄档照旧全列', () => {
+    expect(moreNavFor('regular')).toEqual([])
+    expect(moreNavFor('compact')).toEqual(MORE_NAV)
+  })
+
+  it('中档里侧栏的每个独立入口，不在导航条上就在「更多」里', () => {
+    const reachable = new Set([...RAIL_NAV, ...moreNavFor('regular')].map(i => i.to))
+    const sidebar = [...SIDEBAR_DISCOVER, ...SIDEBAR_LIBRARY]
+      .map(i => i.to)
+      .filter(to => !['/library', '/albums', '/artists', '/playlists'].includes(to))
+    expect(sidebar.filter(to => !reachable.has(to))).toEqual([])
   })
 })

@@ -3,9 +3,10 @@
  *
  * iPhone Duo 展开、iPad 竖屏、iPad 半屏分屏落在这一档：横向放不下侧栏，
  * 但底部标签栏会把纵向空间切掉一截。参考 QQ 音乐在 Duo 上的做法，导航竖排在左侧，
- * 播放控制仍留在底部。四个一级入口在上，设置沉到底。
+ * 播放控制仍留在底部。页面入口全摆在上面（RAIL_NAV_GROUPS，发现 / 音乐库两组），设置沉到底。
  */
 
+import { Fragment } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { GearSix } from '@phosphor-icons/react'
 import { motion } from 'motion/react'
@@ -15,7 +16,7 @@ import { needsTrafficLightInset } from '@/lib/platform'
 import { prefetchRoute } from '@/routes/lazyRoutes'
 import { useT } from '@/i18n'
 import { useAppName } from '@/hooks/useAppName'
-import { PRIMARY_NAV, isNavActive } from './navItems'
+import { RAIL_NAV_GROUPS, isNavActive } from './navItems'
 
 const railItem = (active: boolean) =>
   cn(
@@ -44,7 +45,7 @@ export function AppRail() {
   return (
     <nav
       aria-label={t('nav.main')}
-      className="col-start-1 row-start-1 m-2.5 mr-0 flex min-h-0 w-[84px] flex-col items-center gap-1.5 rounded-[24px] bg-surface-2/75 py-4 shadow-hair"
+      className="scrollbar-hide col-start-1 row-start-1 m-2.5 mr-0 flex min-h-0 w-[84px] flex-col items-center gap-1.5 overflow-y-auto rounded-[24px] bg-surface-2/75 py-4 shadow-hair"
       style={{
         marginTop: 'calc(env(safe-area-inset-top) + 10px)',
         marginBottom: 'calc(env(safe-area-inset-bottom) + 10px)',
@@ -60,24 +61,29 @@ export function AppRail() {
       >
         {appName}
       </NavLink>
-      {PRIMARY_NAV.map(item => {
-        const active = isNavActive(item, pathname)
-        const Icon = item.icon
-        return (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onMouseEnter={() => prefetchRoute(item.to)}
-            onTouchStart={() => prefetchRoute(item.to)}
-            className={railItem(active)}
-            aria-current={active ? 'page' : undefined}
-          >
-            {active && <RailPill />}
-            <Icon size={23} weight={active ? 'fill' : 'regular'} className={active ? 'text-leaf' : undefined} />
-            <span>{t(item.labelKey)}</span>
-          </NavLink>
-        )
-      })}
+      {RAIL_NAV_GROUPS.map((group, gi) => (
+        <Fragment key={gi}>
+          {gi > 0 && <span aria-hidden="true" className="my-1 h-px w-10 flex-none bg-ink/10" />}
+          {group.map(item => {
+            const active = isNavActive(item, pathname)
+            const Icon = item.icon
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onMouseEnter={() => prefetchRoute(item.to)}
+                onTouchStart={() => prefetchRoute(item.to)}
+                className={railItem(active)}
+                aria-current={active ? 'page' : undefined}
+              >
+                {active && <RailPill />}
+                <Icon size={23} weight={active ? 'fill' : 'regular'} className={active ? 'text-leaf' : undefined} />
+                <span>{t(item.labelKey)}</span>
+              </NavLink>
+            )
+          })}
+        </Fragment>
+      ))}
       <span className="flex-1" data-tauri-drag-region />
       <NavLink
         to="/settings"
