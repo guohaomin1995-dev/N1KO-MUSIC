@@ -24,8 +24,9 @@
  * 不用相反色：烟和藏在烟里的封面已经是这首歌的颜色，补色字会和它们打架，
  * 视频里那种一屋子同一种颜色的氛围也就没了。字的对比交给光——光束打上去的那一下才是最亮的。
  *
- * 字的排版仍由 DOM 里的 SpotlightLyric 决定（位置、字体、换句），这里只是照着画；
- * 画得出来时根元素带 data-glass-lyrics，DOM 里的字变成透明，读屏照常。
+ * 玻璃字照着歌词那一栏（data-lyric-stage）的 data-lyric-text 画；那一栏现在是天际屏歌词（SkylineLyric），
+ * 它把 data-lyric-text 留空——当前句是 DOM 里的霓虹字，这一遍只剩把烟贴满。
+ * 主光束（0 号槽）对准正在唱的那个字（data-beam-head），其余几束照灯位走。
  *
  * 成本：第一遍 0.6 倍、30fps；第二遍只有歌词那一块做玻璃计算，其余只是贴图。页面隐藏就停。
  * 减弱动态效果时烟不飘，只跟着进度点挪光。没有 WebGL 时退回糊开的封面（LyricAtmosphere）。
@@ -38,7 +39,8 @@ import { useArtLightStore } from '@/store/artLightStore'
 import { getAudioCurrentTime } from '@/hooks/useAudioEngine'
 import type { ArtPalette } from '@/services/artLight'
 import { LyricAtmosphere } from './LyricAtmosphere'
-import { glassHue, rasterizeLyric, type LyricFont } from './lyricGlass'
+import { glassHue, rasterizeLyric, type LyricCell, type LyricFont } from './lyricGlass'
+import { progressPoint, skyColorFloats } from './skyline'
 import { SLOT_COUNT, STILL_RIG, beatPulse, mixBeamRigs, nextBeamRig, type BeamPose, type BeamRig } from './lyricBeams'
 
 /** 没有 BPM 标签时按这个速度打拍子 */
@@ -202,6 +204,11 @@ precision mediump float;
 uniform sampler2D uScene;
 uniform sampler2D uTextA;
 uniform sampler2D uTextB;
+/* 下一句：小号、淡一些的玻璃字（换句时它往上、放大，变成当前句） */
+uniform sampler2D uTextN;
+uniform vec4 uRectN;
+uniform vec4 uLayerN;
+uniform vec2 uTexelN;
 /* 遮罩在画布上的位置（uv，y 朝上）：x, y, w, h */
 uniform vec4 uRectA;
 uniform vec4 uRectB;
@@ -213,6 +220,15 @@ uniform vec2 uTexelB;
 uniform vec2 uRes;
 uniform vec2 uOrigin;
 uniform vec3 uGlass;
+/* 颜色进度（天际屏歌词）：字序图（R×255 + G = 第几个字 + 字里的位置）、
+   进度 x = 唱到第几个字（以字为单位），y = 这句有几个字（0 = 不染色） */
+uniform sampler2D uOrderA;
+uniform sampler2D uOrderB;
+uniform vec2 uProgA;
+uniform vec2 uProgB;
+uniform vec3 uSungA;
+uniform vec3 uSungB;
+uniform vec3 uSungHead;
 varying vec2 vUv;
 
 vec3 frosted(vec2 uv, vec2 r) {
@@ -225,11 +241,24 @@ vec3 frosted(vec2 uv, vec2 r) {
   return c;
 }
 
-vec3 glassLayer(vec3 col, sampler2D tex, vec4 rect, vec4 layer, vec2 texel, float lit) {
+vec3 glassLayer(vec3 col, sampler2D tex, sampler2D order, vec2 prog, vec4 rect, vec4 layer, vec2 texel, float lit) {
   if (layer.x < 0.003) return col;
   vec2 tuv = (vUv - rect.xy - vec2(0.0, layer.z)) / rect.zw;
   if (tuv.x < 0.0 || tuv.y < 0.0 || tuv.x > 1.0 || tuv.y > 1.0) return col;
   vec4 t = texture2D(tex, tuv);
+
+  /* 颜色进度：比进度小的就是唱过的；唱过的从主色渐变到副色，进度头那个字最亮 */
+  float sung = 0.0;
+  vec3 sungCol = vec3(1.0);
+  if (prog.y > 0.5) {
+    vec4 o = texture2D(order, tuv);
+    float pos = o.r * 255.0 + o.g;
+    sung = 1.0 - smoothstep(prog.x - 0.04, prog.x + 0.04, pos);
+    sungCol = mix(uSungA, uSungB, clamp(pos / max(prog.x, 1.0), 0.0, 1.0));
+    sungCol = mix(sungCol, uSungHead, smoothstep(prog.x - 1.0, prog.x - 0.15, pos));
+  }
+  /* 唱过的字外面一圈同色的光（重度糊开的字形） */
+  col += sungCol * min(1.0, t.b * 1.6) * sung * layer.x * 0.2;
 
   /* 扁平毛玻璃：不做斜面、不做镜面反光。一块平的磨砂玻璃 + 一圈均匀的细亮边 + 很淡的投影 */
   float sh = texture2D(tex, tuv + vec2(0.0, texel.y * 3.0)).b;
@@ -241,34 +270,45 @@ vec3 glassLayer(vec3 col, sampler2D tex, vec4 rect, vec4 layer, vec2 texel, floa
   /* 磨砂：字后面的烟糊开透过来，上面盖一层半透明的「奶白 + 一点玻璃色」 */
   vec3 behind = frosted(vUv, vec2(0.0));
   vec3 milk = mix(vec3(1.0), uGlass, 0.4);
-  vec3 glass = mix(behind, milk, 0.48);
+  /* 唱过的玻璃染上进度色，染得更浓：还是透着烟的玻璃，只是换了颜色 */
+  milk = mix(milk, sungCol, sung * 0.92);
+  vec3 glass = mix(behind, milk, 0.48 + sung * 0.3);
   /* 磨砂颗粒：很细的一层噪点，玻璃才不像一块平涂的颜色 */
   glass += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.04;
 
   /* 细亮边：清晰字形里、轻微糊开的字形还没到满的那一圈 */
   float edge = t.r * (1.0 - smoothstep(0.5, 0.9, t.g));
-  glass = mix(glass, mix(uGlass, vec3(1.0), 0.9), edge * (0.85 + lit * 0.15));
+  vec3 rim = mix(mix(uGlass, vec3(1.0), 0.9), mix(sungCol, vec3(1.0), 0.45), sung);
+  glass = mix(glass, rim, edge * (0.85 + lit * 0.15));
 
   /* 光柱扫过：整块玻璃被照亮，平平地亮，不出反光点 */
   glass += mix(uGlass, vec3(1.0), 0.6) * lit * 0.28;
 
-  return mix(col, glass, m * 0.85);
+  return mix(col, glass, m * (0.85 + sung * 0.1));
 }
 
 void main() {
   vec4 scene = texture2D(uScene, vUv);
   vec3 col = scene.rgb;
   float lit = scene.a / 0.6;
-  col = glassLayer(col, uTextB, uRectB, uLayerB, uTexelB, lit);
-  col = glassLayer(col, uTextA, uRectA, uLayerA, uTexelA, lit);
+  col = glassLayer(col, uTextN, uTextN, vec2(0.0), uRectN, uLayerN, uTexelN, lit);
+  col = glassLayer(col, uTextB, uOrderB, uProgB, uRectB, uLayerB, uTexelB, lit);
+  col = glassLayer(col, uTextA, uOrderA, uProgA, uRectA, uLayerA, uTexelA, lit);
   gl_FragColor = vec4(col, 1.0);
 }`
+
+/** 下一句那层玻璃的不透明度：比当前句淡一截 */
+const NEXT_GLASS = 0.6
 
 interface SmokeColors {
   smoke: [number, number, number]
   deep: [number, number, number]
   shadow: [number, number, number]
   glass: [number, number, number]
+  /** 颜色进度（和 SkylineLyric 同一套，见 skyline.ts） */
+  sungA: [number, number, number]
+  sungB: [number, number, number]
+  sungHead: [number, number, number]
 }
 
 /** 封面的色相 → 三种颜色，亮度锁死。没取到封面时是一点冷灰紫，不用品牌青柠 */
@@ -280,6 +320,7 @@ function colorsFor(palette: ArtPalette, hasSource: boolean): SmokeColors {
     deep: oklchToRgb(0.3, Math.min(c * 0.55, 0.06), h),
     shadow: oklchToRgb(0.16, Math.min(c * 0.4, 0.04), h),
     glass: oklchToRgb(0.92, Math.min(c * 0.55 + 0.012, 0.055), hasSource ? glassHue(palette.h, palette.h2) : 300),
+    ...skyColorFloats(hasSource ? palette : null),
   }
 }
 
@@ -382,21 +423,39 @@ export function LyricSmoke({ coverUrl }: { coverUrl?: string }) {
     interface TextLayer {
       tex: WebGLTexture | null
       unit: number
+      /** 字序图（颜色进度），以及每个字的格子（光点、主光束按它定位） */
+      order: WebGLTexture | null
+      orderUnit: number
+      cells: LyricCell[]
       rect: [number, number, number, number]
       texel: [number, number]
       /** 遮罩在宿主里的位置（CSS 像素），宿主尺寸变了要换算 */
       box: { x: number; y: number; width: number; height: number } | null
       at: number
+      /** 这一层画的是哪句、多大的字（换句时判断「新的当前句是不是刚才那句下一句」） */
+      text: string
+      fontSize: number
+      /** 从哪儿长过来（下一句的位置与相对字号）；没有就是原地从糊里浮出来 */
+      from: { cx: number; cy: number; scale: number } | null
     }
-    let layerA: TextLayer = { tex: makeTexture(2), unit: 2, rect: [0, 0, 1, 1], texel: [1, 1], box: null, at: -1e9 }
-    let layerB: TextLayer = { tex: makeTexture(3), unit: 3, rect: [0, 0, 1, 1], texel: [1, 1], box: null, at: -1e9 }
+    const newLayer = (unit: number, orderUnit: number, order: WebGLTexture | null): TextLayer => ({
+      tex: makeTexture(unit), unit, order, orderUnit, cells: [], rect: [0, 0, 1, 1], texel: [1, 1],
+      box: null, at: -1e9, text: '', fontSize: 0, from: null,
+    })
+    let layerA = newLayer(2, 4, makeTexture(4))
+    let layerB = newLayer(3, 5, makeTexture(5))
+    /** 下一句：只是一层淡玻璃，不染进度（字序图那个单元随便指一个，着色器不会去读） */
+    const layerN = newLayer(6, 6, null)
     let lyricKey = ''
 
     const gu = (name: string) => gl.getUniformLocation(glassProg, name)
     const glassUniforms = {
       scene: gu('uScene'), textA: gu('uTextA'), textB: gu('uTextB'), rectA: gu('uRectA'), rectB: gu('uRectB'),
+      textN: gu('uTextN'), rectN: gu('uRectN'), layerN: gu('uLayerN'), texelN: gu('uTexelN'),
       layerA: gu('uLayerA'), layerB: gu('uLayerB'), texelA: gu('uTexelA'), texelB: gu('uTexelB'),
       res: gu('uRes'), origin: gu('uOrigin'), glass: gu('uGlass'),
+      orderA: gu('uOrderA'), orderB: gu('uOrderB'), progA: gu('uProgA'), progB: gu('uProgB'),
+      sungA: gu('uSungA'), sungB: gu('uSungB'), sungHead: gu('uSungHead'),
     }
 
     const u = (name: string) => gl.getUniformLocation(prog, name)
@@ -416,6 +475,9 @@ export function LyricSmoke({ coverUrl }: { coverUrl?: string }) {
     let lastSwingBeat = 0
     let pulse = 0
     const beamData = new Float32Array(SLOT_COUNT * 4)
+    /** 主光束的朝向（平滑跟着进度头走） */
+    let aim = 0
+    let aimReady = false
     const poseNow = (now: number): BeamPose[] =>
       rigAt < 0 ? rigTo.beams : mixBeamRigs(rigFrom, rigTo, (now - rigAt) / 1000 / RIG_SWING)
     const swingTo = (now: number) => {
@@ -447,7 +509,10 @@ export function LyricSmoke({ coverUrl }: { coverUrl?: string }) {
 
     const art = useArtLightStore.getState()
     const target = colorsFor(art.palette, !!art.source)
-    const current: SmokeColors = { smoke: [...target.smoke], deep: [...target.deep], shadow: [...target.shadow], glass: [...target.glass] }
+    const current: SmokeColors = {
+      smoke: [...target.smoke], deep: [...target.deep], shadow: [...target.shadow], glass: [...target.glass],
+      sungA: [...target.sungA], sungB: [...target.sungB], sungHead: [...target.sungHead],
+    }
     const unsubscribePalette = useArtLightStore.subscribe(state => {
       Object.assign(target, colorsFor(state.palette, !!state.source))
     })
@@ -531,6 +596,7 @@ export function LyricSmoke({ coverUrl }: { coverUrl?: string }) {
 
       /* 换句就换一套灯位；一直没换句（间奏、纯音乐）就每 4 小节换一次 */
       const stage = document.querySelector<HTMLElement>('[data-lyric-stage]')
+      const stageRect = stage?.getBoundingClientRect()
       const lyric = stage ? `${stage.dataset.lyricKey ?? ''}:${stage.dataset.lyricText ?? ''}` : null
       if (playing) {
         if (lyric !== lastLyric) {
@@ -560,12 +626,46 @@ export function LyricSmoke({ coverUrl }: { coverUrl?: string }) {
         beamData[i * 4 + 3] = b.reach
       }
 
+      /* 唱到哪（以字为单位，SkylineLyric 每帧写在那一栏上）。主光束和光斑都跟着「唱到这个字的几成」
+         那一点走——连续地扫过整句，不是一个字一个字地跳 */
+      const progress = Number.parseFloat(stage?.dataset.lyricProgress ?? '') || 0
+      const point = layerA.box ? progressPoint(layerA.cells, progress) : null
+      if (point && layerA.box) {
+        const aspect = rect.width / rect.height
+        const cx = layerA.box.x + point.x
+        const cy = layerA.box.y + (point.top + point.bottom) / 2
+        const hx = (cx / rect.width - origin.x) * aspect
+        const hy = 1 - cy / rect.height - origin.y
+        if (hy > 0.02) {
+          const want = Math.atan2(hx, hy)
+          // 阻尼跟随：平时贴着进度慢慢扫，跨行、换句时缓缓摆过去，不甩
+          aim = aimReady ? aim + (want - aim) * (1 - Math.exp(-dt * 3.2)) : want
+          aimReady = true
+          beamData[0] = aim + (reduced ? 0 : Math.sin(swayT * 0.9) * 0.01)
+          beamData[1] = 0.055 * (1 + pulse * 0.3)
+          beamData[2] = 0.95
+          beamData[3] = Math.max(1, Math.hypot(hx, hy) * 1.6)
+        }
+      } else {
+        aimReady = false
+      }
+      /* 光斑的发射点写在那一栏上（相对这一栏的 CSS 像素：x, 字顶, 字宽, 字高），SkylineLyric 的粒子层读 */
+      if (stage && stageRect) {
+        if (point && layerA.box) {
+          const sx = rect.left + layerA.box.x + point.x - stageRect.left
+          const sy = rect.top + layerA.box.y + point.top - stageRect.top
+          stage.dataset.skyHead = `${sx.toFixed(1)},${sy.toFixed(1)},${point.w.toFixed(1)},${point.h.toFixed(1)}`
+        } else {
+          delete stage.dataset.skyHead
+        }
+      }
+
       /* 暂停时光收一半，不灭 */
       const beamTarget = (found ? 1 : 0.8) * (player.isPlaying ? 1 : 0.55)
       beam += (beamTarget - beam) * Math.min(1, dt * 2.5)
 
       const ck = Math.min(1, dt * 1.5)
-      for (const key of ['smoke', 'deep', 'shadow', 'glass'] as const) {
+      for (const key of ['smoke', 'deep', 'shadow', 'glass', 'sungA', 'sungB', 'sungHead'] as const) {
         for (let i = 0; i < 3; i++) current[key][i] += (target[key][i] - current[key][i]) * ck
       }
 
@@ -589,27 +689,32 @@ export function LyricSmoke({ coverUrl }: { coverUrl?: string }) {
         coverMix += (coverTarget - coverMix) * Math.min(1, dt * 1.2)
       }
 
-      /* 歌词换了（或者那一栏的尺寸变了）：重画遮罩，旧的挪到 B 层散掉 */
-      const stageRect = stage?.getBoundingClientRect()
+      /* 歌词换了（或者那一栏的尺寸变了）：重画当前句和下一句的遮罩。
+         换句时旧的当前句挪到 B 层往上糊开散掉；新的当前句如果就是刚才的下一句，从下一句的位置和字号长过来 */
       const text = stage?.dataset.lyricText ?? ''
+      const nextText = stage?.dataset.lyricNext ?? ''
       const key = stage && stageRect
-        ? `${lyric}|${Math.round(stageRect.width)}x${Math.round(stageRect.height)}|${Math.round(rect.width)}x${Math.round(rect.height)}`
+        ? `${lyric}|${nextText}|${Math.round(stageRect.width)}x${Math.round(stageRect.height)}|${Math.round(rect.width)}x${Math.round(rect.height)}`
         : ''
       if (key !== lyricKey) {
         const resized = lyricKey.split('|')[0] === key.split('|')[0]
         lyricKey = key
-        const sample = stage?.querySelector<HTMLElement>('[data-beam-target]')
-        let mask = null
-        if (stage && stageRect && sample && text) {
-          const cs = getComputedStyle(sample)
+        const fontOf = (el: HTMLElement): LyricFont => {
+          const cs = getComputedStyle(el)
           const size = parseFloat(cs.fontSize) || 40
-          const font: LyricFont = {
+          return {
             weight: cs.fontWeight,
             family: cs.fontFamily,
             size,
             letterSpacing: parseFloat(cs.letterSpacing) || 0,
             lineHeight: parseFloat(cs.lineHeight) || size * 1.28,
           }
+        }
+        const sample = stage?.querySelector<HTMLElement>('[data-beam-target]')
+        let mask = null
+        let font: LyricFont | null = null
+        if (stage && stageRect && sample && text) {
+          font = fontOf(sample)
           mask = rasterizeLyric(text, font, {
             centerX: stageRect.left - rect.left + stageRect.width / 2,
             centerY: stageRect.top - rect.top + stageRect.height * 0.42,
@@ -621,30 +726,91 @@ export function LyricSmoke({ coverUrl }: { coverUrl?: string }) {
           layerB = layerA
           layerA = old
           layerA.at = reduced ? -1e9 : now
+          // 新的当前句就是刚才的下一句：从下一句那儿长过来
+          const n = layerN.box
+          layerA.from = !reduced && n && mask && font && layerN.text === text
+            ? { cx: n.x + n.width / 2, cy: n.y + n.height / 2, scale: layerN.fontSize / font.size }
+            : null
+        } else {
+          layerA.from = null
         }
         layerA.box = mask
+        layerA.text = text
+        layerA.fontSize = font?.size ?? 0
+        layerA.cells = mask?.order ? mask.cells : []
         if (mask) {
           gl.activeTexture(gl.TEXTURE0 + layerA.unit)
           gl.bindTexture(gl.TEXTURE_2D, layerA.tex)
           gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mask.canvas)
           layerA.texel = [1 / mask.canvas.width, 1 / mask.canvas.height]
+          if (mask.order) {
+            gl.activeTexture(gl.TEXTURE0 + layerA.orderUnit)
+            gl.bindTexture(gl.TEXTURE_2D, layerA.order)
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mask.order)
+          }
+        }
+
+        // 下一句：照着那一栏里下一句的位置和字体画（退场中的旧「下一句」也在 DOM 里，按文字找对的那个）
+        const nextEl = stage
+          ? [...stage.querySelectorAll<HTMLElement>('[data-next-target]')].find(el => el.textContent === nextText) ?? null
+          : null
+        let nextMask = null
+        let nextFont: LyricFont | null = null
+        if (stage && stageRect && nextEl && nextText) {
+          nextFont = fontOf(nextEl)
+          nextMask = rasterizeLyric(nextText, nextFont, {
+            centerX: stageRect.left - rect.left + stageRect.width / 2,
+            centerY: stageRect.top - rect.top + nextEl.offsetTop + nextEl.offsetHeight / 2,
+            maxWidth: stageRect.width * 0.94,
+          }, dpr)
+        }
+        layerN.box = nextMask
+        layerN.text = nextText
+        layerN.fontSize = nextFont?.size ?? 0
+        layerN.at = resized || reduced ? -1e9 : now
+        if (nextMask) {
+          gl.activeTexture(gl.TEXTURE0 + layerN.unit)
+          gl.bindTexture(gl.TEXTURE_2D, layerN.tex)
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, nextMask.canvas)
+          layerN.texel = [1 / nextMask.canvas.width, 1 / nextMask.canvas.height]
         }
       }
-      for (const layer of [layerA, layerB]) {
-        if (!layer.box) continue
-        layer.rect = [
-          layer.box.x / rect.width,
-          1 - (layer.box.y + layer.box.height) / rect.height,
-          layer.box.width / rect.width,
-          layer.box.height / rect.height,
-        ]
+
+      const ease = (t: number) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 3
+      /** 遮罩在画布上的位置（uv，y 朝上）：可以从 (cx, cy, scale) 长到原位 */
+      const placeLayer = (layer: TextLayer, grow: number) => {
+        if (!layer.box) return
+        const b = layer.box
+        let cx = b.x + b.width / 2
+        let cy = b.y + b.height / 2
+        let s = 1
+        if (layer.from && grow < 1) {
+          cx = layer.from.cx + (cx - layer.from.cx) * grow
+          cy = layer.from.cy + (cy - layer.from.cy) * grow
+          s = layer.from.scale + (1 - layer.from.scale) * grow
+        }
+        const w = b.width * s
+        const hgt = b.height * s
+        layer.rect = [(cx - w / 2) / rect.width, 1 - (cy + hgt / 2) / rect.height, w / rect.width, hgt / rect.height]
       }
-      /* 新句从糊里浮上来，旧句糊开往上散 */
-      const swap = Math.min(1, Math.max(0, (now - layerA.at) / 900))
-      const e = 1 - (1 - swap) ** 3
-      const layerAUniform = layerA.box ? [e, 1 - e, -(1 - e) * 0.025, 0] : [0, 0, 0, 0]
-      const layerBUniform = layerB.box && swap < 1 ? [1 - e, e, e * 0.03, 0] : [0, 0, 0, 0]
+
+      /* 换句：下一句往上、放大成当前句（不是下一句的话就原地从糊里浮出来）；
+         旧的当前句往上飘、糊开、淡掉；再下一句稍后从下面淡进来 */
+      const eA = ease((now - layerA.at) / 750)
+      const eB = ease((now - layerA.at) / 850)
+      const eN = ease((now - layerN.at - 250) / 650)
+      placeLayer(layerA, eA)
+      placeLayer(layerB, 1)
+      placeLayer(layerN, 1)
+      const layerAUniform = !layerA.box
+        ? [0, 0, 0, 0]
+        : layerA.from
+          ? [NEXT_GLASS + (1 - NEXT_GLASS) * eA, (1 - eA) * 0.25, 0, 0]
+          : [eA, 1 - eA, -(1 - eA) * 0.025, 0]
+      const layerBUniform = layerB.box && eB < 1 ? [1 - eB, eB, eB * 0.07, 0] : [0, 0, 0, 0]
+      const layerNUniform = layerN.box ? [NEXT_GLASS * eN, (1 - eN) * 0.7, -(1 - eN) * 0.025, 0] : [0, 0, 0, 0]
 
       if (!reduced) frozenAt = (now - start) / 1000
       gl.useProgram(prog)
@@ -674,9 +840,21 @@ export function LyricSmoke({ coverUrl }: { coverUrl?: string }) {
       gl.uniform4fv(glassUniforms.layerB, layerBUniform)
       gl.uniform2fv(glassUniforms.texelA, layerA.texel)
       gl.uniform2fv(glassUniforms.texelB, layerB.texel)
+      gl.uniform1i(glassUniforms.textN, layerN.unit)
+      gl.uniform4fv(glassUniforms.rectN, layerN.rect)
+      gl.uniform4fv(glassUniforms.layerN, layerNUniform)
+      gl.uniform2fv(glassUniforms.texelN, layerN.texel)
       gl.uniform2f(glassUniforms.res, fullW, fullH)
       gl.uniform2f(glassUniforms.origin, origin.x, origin.y)
       gl.uniform3fv(glassUniforms.glass, current.glass)
+      gl.uniform1i(glassUniforms.orderA, layerA.orderUnit)
+      gl.uniform1i(glassUniforms.orderB, layerB.orderUnit)
+      // 当前句按进度染；正在散掉的上一句算唱完了
+      gl.uniform2f(glassUniforms.progA, progress, layerA.cells.length)
+      gl.uniform2f(glassUniforms.progB, 1e4, layerB.cells.length)
+      gl.uniform3fv(glassUniforms.sungA, current.sungA)
+      gl.uniform3fv(glassUniforms.sungB, current.sungB)
+      gl.uniform3fv(glassUniforms.sungHead, current.sungHead)
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
     }
 

@@ -7,6 +7,12 @@
  *   B  重度糊开的字形（字底下的投影；换句时字从糊里出来也用它）
  *
  * 断行自己做：中日韩字逐字可断，其余按词断。超过三行就把字号往下收。
+ *
+ * 另有一张「字序图」给颜色进度用（天际屏歌词）：每个字占一格，
+ *   R  这是第几个字（不算空格，0–254）
+ *   G  在这个字里从左到右 0 → 1
+ * 着色器拿 R×255 + G 和当前进度（同样以字为单位）一比，就知道哪里唱过了、进度头在哪。
+ * 一行左边空白记成这一行第一个字的开头，右边空白记成最后一个字的结尾，糊开的光晕跟着字一起染色。
  */
 
 export interface LyricFont {
@@ -21,11 +27,88 @@ export interface LyricFont {
 
 export interface GlassMask {
   canvas: HTMLCanvasElement
+  /** 字序图（颜色进度用），和 canvas 同尺寸 */
+  order: HTMLCanvasElement | null
+  /** 每个字（不算空格）在遮罩里的格子，CSS 像素，按唱的顺序 */
+  cells: LyricCell[]
   /** 在宿主（画布那一层）里的位置，CSS 像素，左上角为原点 */
   x: number
   y: number
   width: number
   height: number
+}
+
+export interface LyricCell {
+  /** 第几个字（不算空格），也是在 cells 里的下标 */
+  slot: number
+  /** 这一行的第几行 */
+  line: number
+  x0: number
+  x1: number
+  top: number
+  bottom: number
+}
+
+/**
+ * 断好的行里每个字落在哪：按行居中排，字宽用 measure 量前缀的宽度。
+ * 空格不占格子；断行只削掉空格，所以格子的顺序就是原文里唱的顺序。
+ */
+export function layoutCells(
+  lines: string[],
+  measure: (s: string) => number,
+  width: number,
+  pad: number,
+  lineHeight: number,
+): LyricCell[] {
+  const cells: LyricCell[] = []
+  lines.forEach((line, row) => {
+    const chars = Array.from(line)
+    const start = width / 2 - measure(line) / 2
+    const top = pad + lineHeight * row
+    let prefix = ''
+    for (const ch of chars) {
+      const x0 = start + measure(prefix)
+      prefix += ch
+      const x1 = start + measure(prefix)
+      if (/\s/.test(ch)) continue
+      cells.push({ slot: cells.length, line: row, x0, x1, top, bottom: top + lineHeight })
+    }
+  })
+  return cells
+}
+
+/** 画字序图：每格 R = 第几个字，G 在格子里从 0 渐变到 1；格子横向连成一片（不留字距的缝） */
+function drawOrder(cells: LyricCell[], width: number, height: number, scale: number, rows: number): HTMLCanvasElement | null {
+  if (cells.length === 0) return null
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(width * scale))
+  canvas.height = Math.max(1, Math.round(height * scale))
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  ctx.scale(scale, scale)
+  const level = (slot: number) => Math.min(254, slot)
+  for (let row = 0; row < rows; row++) {
+    const inRow = cells.filter(c => c.line === row)
+    if (inRow.length === 0) continue
+    // 第一行往上、最后一行往下铺满：投影和光晕也有字序可查
+    const top = row === 0 ? 0 : inRow[0].top
+    const bottom = row === rows - 1 ? height : inRow[0].bottom
+    const first = inRow[0]
+    const last = inRow[inRow.length - 1]
+    ctx.fillStyle = `rgb(${level(first.slot)} 0 0)`
+    ctx.fillRect(0, top, first.x0 + 0.5, bottom - top)
+    inRow.forEach((cell, i) => {
+      const right = i + 1 < inRow.length ? inRow[i + 1].x0 : cell.x1
+      const g = ctx.createLinearGradient(cell.x0, 0, right, 0)
+      g.addColorStop(0, `rgb(${level(cell.slot)} 0 0)`)
+      g.addColorStop(1, `rgb(${level(cell.slot)} 255 0)`)
+      ctx.fillStyle = g
+      ctx.fillRect(cell.x0, top, right - cell.x0 + 0.5, bottom - top)
+    })
+    ctx.fillStyle = `rgb(${level(last.slot)} 255 0)`
+    ctx.fillRect(last.x1, top, width - last.x1, bottom - top)
+  }
+  return canvas
 }
 
 const BREAKABLE = /[\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef\u3000-\u303f]/
@@ -127,8 +210,15 @@ export function rasterizeLyric(
   }
   ctx.filter = 'none'
 
+  // 量字宽要和上面画字用同一个字体与字距
+  probe.font = `${font.weight} ${size}px ${font.family}`
+  setSpacing(probe, font.letterSpacing * (size / font.size))
+  const cells = layoutCells(lines, s => probe.measureText(s).width, width, pad, lineHeight)
+
   return {
     canvas,
+    order: drawOrder(cells, width, height, scale, lines.length),
+    cells,
     x: layout.centerX - width / 2,
     y: layout.centerY - height / 2,
     width,

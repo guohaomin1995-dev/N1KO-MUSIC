@@ -50,7 +50,7 @@ import { sourceSupportsFavorites } from '@/services/heartCapability'
 import { useCoverUrl } from '@/hooks/useCoverUrl'
 import { usePlaybackCover } from '@/hooks/usePlaybackCover'
 import { LyricDisplay } from './LyricDisplay'
-import { SpotlightLyric } from './SpotlightLyric'
+import { SkylineLyric } from './SkylineLyric'
 import { LyricSmoke } from './LyricSmoke'
 import { UpNextList } from './UpNextList'
 import { StageField } from './StageField'
@@ -937,7 +937,7 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
     >
       <div className="min-h-0 flex-1">
         {syncedLyrics && lyrics ? (
-          <SpotlightLyric lines={lyrics.lines} wide={wide} className="h-full" />
+          <SkylineLyric lines={lyrics.lines} wide={wide} className="h-full" />
         ) : (
           lyricsSheet('h-full')
         )}
@@ -1028,7 +1028,7 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
             </div>
           ) : spotlightLyrics && lyrics ? (
             <div className="flex min-h-0 flex-1 flex-col" data-fs-reveal="">
-              <SpotlightLyric lines={lyrics.lines} className="min-h-0 flex-1" />
+              <SkylineLyric lines={lyrics.lines} className="min-h-0 flex-1" />
               <div className={cn('flex items-end gap-3 transition-opacity duration-500', !controlsOn && 'pointer-events-none opacity-0')}>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[20px] font-semibold leading-tight text-ink">{spaceCJK(currentSong.title)}</p>

@@ -572,19 +572,151 @@ a {
     mask-image: linear-gradient(180deg, transparent, oklch(var(--ink)) 6%, oklch(var(--ink)) 74%, transparent);
   }
 
-  /* 烟里的歌词：底下一层很淡的暗晕托字，外面一圈极淡的白光。烟最亮时字也不糊进去 */
-  .lyric-glow {
-    color: rgb(255 255 255 / 0.94);
-    text-shadow:
-      0 2px 6px rgb(0 0 0 / 0.16),
-      0 6px 28px rgb(0 0 0 / 0.22),
-      0 0 22px rgb(255 255 255 / 0.16);
+  /* ===== 天际屏歌词（components/player/SkylineLyric.tsx）=====
+     当前句平时是 LyricSmoke 画的磨砂玻璃字（颜色进度也在着色器里）；下面这套 DOM 字的样式是没有 WebGL 时的兜底。
+     颜色全来自封面：--sky-a / --sky-b / --sky-next 是 rgb()，其余是「r g b」三个通道。
+     光都用 text-shadow（不用 filter）：车机的旧内核上也是便宜的 */
+
+  /* 玻璃字画得出来时，DOM 里的字只留给读屏和量高度 */
+  :root[data-glass-lyrics] .sky-char {
+    color: transparent !important;
+    background-image: none !important;
   }
 
-  /* 烟那一层把这句画成玻璃字时，DOM 里的字只留给读屏 */
-  :root[data-glass-lyrics] .lyric-glow {
+  :root[data-glass-lyrics] .sky-glow {
+    text-shadow: none;
+  }
+
+  /* 霓虹光：一层透明字只留外面的光，垫在彩色字底下（字本身不带阴影，免得盖住进度头的渐变） */
+  .sky-glow {
+    color: transparent;
+    text-shadow:
+      0 0 0.06em rgb(var(--sky-glow) / 0.95),
+      0 0 0.2em rgb(var(--sky-glow) / 0.75),
+      0 0 0.48em rgb(var(--sky-glow) / 0.45);
+  }
+
+  .sky-char[data-s='todo'] {
+    color: rgb(255 255 255 / 0.97);
+  }
+
+  .sky-char[data-s='sung'] {
+    transition: color 0.25s ease-out;
+  }
+
+  /* 正在唱的字：从左往右一点点染上（--f 0–1，每帧更新），边缘带一点羽化 */
+  .sky-char[data-s='head'] {
+    color: transparent;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--sky-head)) calc(var(--f, 0) * 112% - 12%),
+      rgb(255 255 255 / 0.97) calc(var(--f, 0) * 112%)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  /* 下一句（没有玻璃字时的兜底）：小一号、不发光 */
+  .sky-next {
+    color: var(--sky-next);
+    opacity: 0.82;
+    text-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
+  }
+
+  /* 玻璃画得出来时，下一句也是玻璃字（LyricSmoke 画），DOM 里的只用来定位 */
+  :root[data-glass-lyrics] .sky-next {
     color: transparent;
     text-shadow: none;
+  }
+
+  /* 两侧散落的字：横屏放在左右两翼（各占外侧 20%，给长句留出地方）的一条横带里，和歌词齐平、略低，
+     往外后方斜过去，像天际屏的两边 */
+  .sky-side-wide-0 {
+    left: 1%;
+    width: 20%;
+    top: 34%;
+    height: 24%;
+    transform: perspective(900px) rotateY(-20deg);
+    transform-origin: 100% 50%;
+  }
+
+  .sky-side-wide-1 {
+    right: 1%;
+    width: 20%;
+    top: 34%;
+    height: 24%;
+    transform: perspective(900px) rotateY(20deg);
+    transform-origin: 0% 50%;
+  }
+
+  /* 竖屏两边放不下：在下一句下面排成一行，左右各两个 */
+  .sky-side-narrow-0 {
+    left: 4%;
+    width: 42%;
+    top: 64%;
+    height: 12%;
+  }
+
+  .sky-side-narrow-1 {
+    right: 4%;
+    width: 42%;
+    top: 64%;
+    height: 12%;
+  }
+
+  .sky-word {
+    transform: translate(-50%, -50%);
+    font-family: var(--font-display);
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* 比当前句暗、灰一截：只是陪衬。光晕收得很小，字形要清楚 */
+  .sky-word-face {
+    position: relative;
+    color: rgb(var(--sky-side) / 0.62);
+    text-shadow: 0 0 0.06em rgb(var(--sky-ghost) / 0.3);
+  }
+
+  /* 远处的字：更暗，字形照样清楚（不糊成一团色块） */
+  .sky-word-far .sky-word-face {
+    color: rgb(var(--sky-side) / 0.38);
+    text-shadow: none;
+  }
+
+  /* 投影：像近处的灯照在字上、投到远处墙上的影子——一开始就比字大一圈、离字有一段距离，字形清楚、认得出是哪个字。
+     位置不统一：每个字的投影落在它周围的空处（--gx / --gy，单位是这个字的字号，见 skyline.ts 的 ghostOffsets），
+     不压别的字，两组字的疏密也均衡。随着这一句唱下去（--sky-p 0 → 1）沿各自的方向飘远、放大、变糊、变淡，唱完时消散 */
+  .sky-word-ghost {
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: rgb(var(--sky-ghost) / 0.5);
+    transform:
+      translate(
+        calc(var(--gx, 0) * (1 + var(--sky-p, 0) * 0.6) * 1em),
+        calc(var(--gy, -1) * (1 + var(--sky-p, 0) * 0.6) * 1em)
+      )
+      scale(calc(1.75 + var(--sky-p, 0) * 1));
+    filter: blur(calc(0.01em + var(--sky-p, 0) * 0.14em));
+    opacity: calc(1 - var(--sky-p, 0) * 0.95);
+  }
+
+  .sky-drift {
+    animation: sky-drift 11s ease-in-out infinite alternate;
+    animation-delay: var(--d, 0s);
+  }
+
+  @keyframes sky-drift {
+    from { transform: translate(-50%, -50%); }
+    to { transform: translate(calc(-50% + 3px), calc(-50% - 2px)); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sky-drift {
+      animation: none;
+    }
   }
 
   /* 歌词底：封面糊开。模糊是这一层的样子，不跟着动画走 */
