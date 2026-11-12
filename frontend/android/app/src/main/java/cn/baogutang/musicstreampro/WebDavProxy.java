@@ -133,8 +133,20 @@ final class WebDavProxy {
             if (!"HEAD".equalsIgnoreCase(method) && body != null && status < 400) {
                 byte[] buf = new byte[16384];
                 InputStream data = body.byteStream();
+                // 从文件开头起的 FLAC：内嵌封面块改记成填充块（见 FlacPictureStripper），WebView 才打得开
+                boolean fromStart = status == 200 || (contentRange != null && contentRange.trim().startsWith("bytes 0-"));
+                FlacPictureStripper flac = fromStart && (mime.startsWith("audio/") || mime.equals("application/octet-stream"))
+                    ? new FlacPictureStripper()
+                    : null;
                 int n;
                 while ((n = data.read(buf)) != -1) {
+                    if (flac != null) {
+                        flac.process(buf, n);
+                        if (!flac.active()) {
+                            if (flac.stripped() > 0) android.util.Log.i("WebDavProxy", "FLAC: " + flac.stripped() + " embedded picture block(s) passed as padding");
+                            flac = null;
+                        }
+                    }
                     out.write(buf, 0, n);
                 }
             }
