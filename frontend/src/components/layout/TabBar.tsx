@@ -1,7 +1,7 @@
 /**
  * 窄窗口（<600）的底部标签栏：iPhone、Duo 外屏、iPad 侧拉 / 窄分屏。
- * 一枚浮在内容之上的玻璃胶囊，四个一级入口；当前项底下那块片会从上一项滑过来。
- * 其余入口在工具栏的「更多」菜单里。
+ * 一枚浮在内容之上的玻璃胶囊，四格：首页、推荐、收藏、搜索（TAB_NAV）；当前项底下那块片会从上一项滑过来。
+ * 其余入口（本期、播客、音乐库、最近播放、统计）在工具栏的「更多」菜单里。
  */
 
 import { NavLink, useLocation } from 'react-router-dom'
@@ -11,7 +11,7 @@ import { SPRING_SNAPPY } from '@/lib/motion'
 import { haptic } from '@/lib/haptics'
 import { prefetchRoute } from '@/routes/lazyRoutes'
 import { useT } from '@/i18n'
-import { PRIMARY_NAV, isNavActive } from './navItems'
+import { TAB_NAV, isNavActive } from './navItems'
 
 export function TabBar() {
   const { t } = useT()
@@ -20,7 +20,7 @@ export function TabBar() {
   return (
     <nav aria-label={t('nav.main')} className="glass pointer-events-auto rounded-pill p-1.5">
       <ul className="flex items-stretch">
-        {PRIMARY_NAV.map(item => {
+        {TAB_NAV.map(item => {
           const active = isNavActive(item, pathname)
           const Icon = item.icon
           return (

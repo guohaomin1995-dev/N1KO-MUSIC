@@ -1,10 +1,11 @@
 /**
  * 外壳的导航表：侧栏（宽）、侧边导航条（中）、底部标签栏（窄）共用这一份。
  *
- * 三档里都在的只有四个一级入口；侧栏有地方，再把音乐库的分类和「本期」「播客」摊开。
+ * 宽档侧栏把音乐库的分类和「本期」「播客」都摊开。
  * 中档的竖导航条把每个页面入口都摆出来（RAIL_NAV_GROUPS，分组同侧栏），不往菜单里藏；
  * 音乐库的分类（专辑、歌手、歌单）在「音乐库」页里有分段导航。
- * 窄档底部标签栏只有四格，放不下的进工具栏的「更多」菜单（moreNavFor），一个都不丢。
+ * 窄档（手机）底部标签栏四格：首页、推荐、收藏、搜索（TAB_NAV）——收藏比音乐库用得勤；
+ * 放不下的（含音乐库）进工具栏的「更多」菜单（moreNavFor），一个都不丢。
  */
 import type { Icon } from '@phosphor-icons/react'
 import type { WindowClass } from '@/lib/platform'
@@ -21,13 +22,11 @@ export interface NavItem {
   match?: (pathname: string) => boolean
 }
 
-/** 音乐库下的所有路由：在中、窄两档里都算「音乐库」这一格 */
-const LIBRARY_PATHS = /^\/(library|albums|artists|playlists|favorites|history|stats|songs|toplists)(\/|$)/
-
-export const PRIMARY_NAV: NavItem[] = [
+/** 窄档（手机）底部标签栏的四格 */
+export const TAB_NAV: NavItem[] = [
   { to: '/', labelKey: 'nav.home', icon: House, match: p => p === '/' },
   { to: '/recommendations', labelKey: 'nav.recommendations', icon: Sparkle },
-  { to: '/library', labelKey: 'nav.library', icon: Books, match: p => LIBRARY_PATHS.test(p) },
+  { to: '/favorites', labelKey: 'nav.favorites', icon: Heart },
   { to: '/search', labelKey: 'nav.search', icon: MagnifyingGlass },
 ]
 
@@ -71,20 +70,18 @@ export const RAIL_NAV_GROUPS: NavItem[][] = [
 
 export const RAIL_NAV: NavItem[] = RAIL_NAV_GROUPS.flat()
 
-/** 中、窄两档放不进导航的入口：工具栏「更多」菜单（按档位用 moreNavFor 取） */
+/** 窄档标签栏放不下的入口：工具栏「更多」菜单 */
 export const MORE_NAV: NavItem[] = [
   { to: '/issue', labelKey: 'nav.issue', icon: Newspaper },
   { to: '/podcasts', labelKey: 'nav.podcasts', icon: Microphone },
-  { to: '/favorites', labelKey: 'nav.favorites', icon: Heart },
+  { to: '/library', labelKey: 'nav.library', icon: Books },
   { to: '/history', labelKey: 'nav.history', icon: ClockCounterClockwise },
   { to: '/stats', labelKey: 'nav.stats', icon: ChartBar },
 ]
 
-/** 「更多」菜单：中档导航条上已经有的不再重复列 */
+/** 「更多」菜单里的页面入口：只有窄档有；中档导航条上全都有，宽档有侧栏 */
 export function moreNavFor(wc: WindowClass): NavItem[] {
-  if (wc !== 'regular') return MORE_NAV
-  const onRail = new Set(RAIL_NAV.map(item => item.to))
-  return MORE_NAV.filter(item => !onRail.has(item.to))
+  return wc === 'compact' ? MORE_NAV : []
 }
 
 export function isNavActive(item: NavItem, pathname: string): boolean {
