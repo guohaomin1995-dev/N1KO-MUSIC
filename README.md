@@ -223,6 +223,7 @@ there is no "unlocking" of any kind.
 |------|------|------|
 | NetEase Cloud Music | QR scan from the phone app | Search, your playlists, favourites, daily picks, charts, lyrics, add to / remove from playlists, podcasts |
 | QQ Music | QR scan from the QQ or WeChat app | Search, your playlists, favourites, radar picks, charts, lyrics |
+| Xiaoyuzhou | No sign-in | Podcasts: find shows by share link, each show's latest episodes, subscriptions kept on the device |
 
 They sit **alongside** your NAS rather than replacing it: search is grouped by
 source with an "All" view merged by relevance; the home page's **"What to play

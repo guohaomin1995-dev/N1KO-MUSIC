@@ -1,0 +1,24 @@
+{
+  "id": "xiaoyuzhou",
+  "name": "小宇宙",
+  "version": "0.1.0",
+  "protocol": 1,
+  "platform": "xiaoyuzhou",
+  "entry": "index.js",
+  "author": "X-MUSIC",
+  "auth": {
+    "kind": "none",
+    "allowAnonymous": true
+  },
+  "hosts": [
+    "www.xiaoyuzhoufm.com",
+    "xyzfm.link",
+    "*.xyzcdn.net"
+  ],
+  "capabilities": [
+    "podcasts",
+    "podcastLinkSearch"
+  ],
+  "disclaimer": "本插件只读取小宇宙网页版公开的节目页面，不登录、不碰你的小宇宙账号，订阅只存在本机。免登录只能看到每个节目最新的一批单集，也没有关键词搜索：要在小宇宙 App 里复制分享链接粘贴过来。付费单集无法收听。网页结构由小宇宙决定，随时可能调整失效。",
+  "color": "#3b6cf6"
+}

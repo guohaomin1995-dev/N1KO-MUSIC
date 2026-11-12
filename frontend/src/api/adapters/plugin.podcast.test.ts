@@ -128,3 +128,34 @@ describe('播客映射', () => {
     await expect(adapter.getPodcast!('42')).rejects.toMatchObject({ code: 'not-found' })
   })
 })
+
+describe('免登录、只认分享链接的播客音源（小宇宙）', () => {
+  const xyz = (capabilities: string[]): PluginManifest => ({
+    ...manifest(capabilities), id: 'xiaoyuzhou', platform: 'xiaoyuzhou', auth: { kind: 'none', allowAnonymous: true },
+  })
+
+  it('auth.kind 为 none 的音源没有账号这回事；声明 podcastLinkSearch 且有 search 才算只认链接', () => {
+    const host = fakeHost({
+      'n1ko.podcast.getEpisodes': () => ({ data: [], isEnd: true }),
+      'n1ko.podcast.search': () => ({ data: [], isEnd: true }),
+    })
+    const adapter = new PluginAdapter({ serverId: 'xyz', manifest: xyz(['podcasts', 'podcastLinkSearch']), host })
+    expect(adapter.accountless).toBe(true)
+    expect(adapter.podcastLinkSearchOnly).toBe(true)
+
+    const netease = new PluginAdapter({ serverId: 'wy', manifest: manifest(['podcasts']), host })
+    expect(netease.accountless).toBe(false)
+    expect(netease.podcastLinkSearchOnly).toBe(false)
+  })
+
+  it('节目列表的 partial 原样带出；没给就是 false', async () => {
+    let partial: boolean | undefined = true
+    const adapter = new PluginAdapter({
+      serverId: 'xyz', manifest: xyz(['podcasts']),
+      host: fakeHost({ 'n1ko.podcast.getEpisodes': () => ({ data: [episode(1)], isEnd: true, total: 655, partial }) }),
+    })
+    expect(await adapter.getPodcastEpisodes!('42', 1, 'newest')).toMatchObject({ total: 655, partial: true })
+    partial = undefined
+    expect((await adapter.getPodcastEpisodes!('42', 1, 'newest')).partial).toBe(false)
+  })
+})

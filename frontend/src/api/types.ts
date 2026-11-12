@@ -561,10 +561,23 @@ export interface MusicServerAdapter {
   searchPodcasts?(query: string, page: number): Promise<{ isEnd: boolean; items: Podcast[] }>
   /** 播客详情（含「我订没订」）*/
   getPodcast?(id: string): Promise<Podcast>
-  /** 节目列表，分页，第一页 page = 1 */
-  getPodcastEpisodes?(id: string, page: number, order: PodcastEpisodeOrder): Promise<{ isEnd: boolean; total?: number; episodes: Song[] }>
+  /**
+   * 节目列表，分页，第一页 page = 1。
+   * partial：音源只给得出一部分（如免登录的小宇宙只有最新一批）——页面不给「最早」排序，并说明原因。
+   */
+  getPodcastEpisodes?(id: string, page: number, order: PodcastEpisodeOrder): Promise<{ isEnd: boolean; total?: number; partial?: boolean; episodes: Song[] }>
   /** 订阅 / 取消订阅（要登录）*/
   setPodcastSubscribed?(id: string, subscribed: boolean): Promise<void>
+  /**
+   * 播客只能按分享链接查找、没有关键词搜索（如免登录的小宇宙）。
+   * 播客页据此改搜索框提示，没结果时告诉人怎么找。
+   */
+  podcastLinkSearchOnly?: boolean
+  /**
+   * 音源本身没有账号（插件 auth.kind = none）：订阅之类存在本机。
+   * 页面上「要先登录」的判断对它一律当作已登录。
+   */
+  accountless?: boolean
 }
 
 /**

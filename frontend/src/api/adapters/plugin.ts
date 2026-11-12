@@ -93,6 +93,8 @@ export class PluginAdapter implements MusicServerAdapter {
   getPodcast?: MusicServerAdapter['getPodcast']
   getPodcastEpisodes?: MusicServerAdapter['getPodcastEpisodes']
   setPodcastSubscribed?: MusicServerAdapter['setPodcastSubscribed']
+  podcastLinkSearchOnly?: boolean
+  readonly accountless: boolean
   searchSongsPage?: MusicServerAdapter['searchSongsPage']
   star?: MusicServerAdapter['star']
   unstar?: MusicServerAdapter['unstar']
@@ -100,6 +102,7 @@ export class PluginAdapter implements MusicServerAdapter {
   constructor(config: PluginAdapterConfig) {
     this.serverId = config.serverId
     this.manifest = config.manifest
+    this.accountless = config.manifest.auth?.kind === 'none'
     this.host = config.host
     this.mountOptionalMethods()
   }
@@ -567,11 +570,12 @@ export class PluginAdapter implements MusicServerAdapter {
 
     this.getPodcastEpisodes = async (id, page, order) => {
       const raw = rawPodcast(id)
-      const paged = await this.host.call<(Paged<MusicItem> & { total?: number }) | null>('n1ko.podcast.getEpisodes', raw, page, order)
+      const paged = await this.host.call<(Paged<MusicItem> & { total?: number; partial?: boolean }) | null>('n1ko.podcast.getEpisodes', raw, page, order)
       const podcast = { id, name: String(raw.title ?? '') }
       return {
         isEnd: paged?.isEnd ?? true,
         total: typeof paged?.total === 'number' ? paged.total : undefined,
+        partial: paged?.partial === true,
         episodes: (paged?.data ?? []).filter(isMusicItemShape).map(m => mapPodcastEpisode(m, podcast, this.serverId, this.hosts)),
       }
     }
@@ -588,6 +592,8 @@ export class PluginAdapter implements MusicServerAdapter {
       }
     }
     if (this.host.hasMethod('n1ko.podcast.search')) {
+      // 只认分享链接的音源（manifest 声明 podcastLinkSearch）：播客页据此换提示
+      this.podcastLinkSearchOnly = this.capability('podcastLinkSearch')
       this.searchPodcasts = async (query, page) => {
         const paged = await this.host.call<Paged<PodcastItem> | null>('n1ko.podcast.search', query, page)
         return { isEnd: paged?.isEnd ?? true, items: mapList(paged?.data) }

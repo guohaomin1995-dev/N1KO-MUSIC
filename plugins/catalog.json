@@ -12,5 +12,12 @@
     "version": "0.1.21",
     "manifest": "qqmusic/manifest.json",
     "description": "用你自己的 QQ 音乐账号听你有权听的歌；QQ / 微信扫码登录，凭据只在本机"
+  },
+  {
+    "id": "xiaoyuzhou",
+    "name": "小宇宙",
+    "version": "0.1.0",
+    "manifest": "xiaoyuzhou/manifest.json",
+    "description": "小宇宙的公开播客：粘贴分享链接找节目，订阅存在本机；不登录、不碰你的小宇宙账号"
   }
 ]

@@ -1,7 +1,8 @@
 /**
- * 播客的数据查询（声明 podcasts 能力的音源；目前是网易云）。
+ * 播客的数据查询（声明 podcasts 能力的音源：网易云、免登录的小宇宙）。
  *
  * 订阅列表要登录：没登录的音源不去请求（插件只会回 unauthorized），页面直接给「去登录」。
+ * 没有账号这回事的音源（accountless，订阅存在本机）一律算已登录。
  * 订阅开关做成乐观更新：按钮先变，失败了再变回来并提示。
  */
 
@@ -22,7 +23,10 @@ import {
 const SUBSCRIBED_MAX_PAGES = 10
 
 export interface PodcastSource extends SourceRef {
+  /** 能用订阅：登录了，或者音源本身没有账号（订阅存在本机） */
   loggedIn: boolean
+  /** 只能按分享链接查找，没有关键词搜索 */
+  linkSearchOnly: boolean
 }
 
 /** 能听播客的音源 */
@@ -33,7 +37,14 @@ export function usePodcastSources(): PodcastSource[] {
   return useMemo(
     () => sources
       .filter(s => caps[s.serverId]?.podcasts && hasAdapterFor(s.serverId))
-      .map(s => ({ ...s, loggedIn: !!servers.find(x => x.id === s.serverId)?.credentials })),
+      .map(s => {
+        const adapter = getAdapterFor(s.serverId)
+        return {
+          ...s,
+          loggedIn: !!servers.find(x => x.id === s.serverId)?.credentials || adapter.accountless === true,
+          linkSearchOnly: adapter.podcastLinkSearchOnly === true,
+        }
+      }),
     [sources, caps, servers]
   )
 }
@@ -80,15 +91,28 @@ export function useRecommendedPodcasts(sources: PodcastSource[]): SourceQueryGro
 
 /** 各源搜索（第一页）；query 为空时不查 */
 export function usePodcastSearch(sources: PodcastSource[], query: string): SourceQueryGroup<Podcast[]>[] {
+  const queryClient = useQueryClient()
   const q = query.trim()
+  // 粘贴的是分享链接：只交给认链接的音源。拿链接文本去别家按关键词搜，只会搜出一堆
+  // 名字里带「小宇宙」的电台，把真正要找的那个挤到最后
+  const isLink = /https?:\/\/\S+/i.test(q)
   const eligible = useMemo(
-    () => (q ? sources.filter(s => typeof getAdapterFor(s.serverId).searchPodcasts === 'function') : []),
-    [sources, q]
+    () => (q
+      ? sources.filter(s => typeof getAdapterFor(s.serverId).searchPodcasts === 'function' && (!isLink || s.linkSearchOnly))
+      : []),
+    [sources, q, isLink]
   )
   const results = useQueries({
     queries: eligible.map(s => ({
       queryKey: [s.serverId, 'podcasts', 'search', q] as const,
-      queryFn: async () => (await getAdapterFor(s.serverId).searchPodcasts!(q, 1)).items,
+      queryFn: async () => {
+        const items = (await getAdapterFor(s.serverId).searchPodcasts!(q, 1)).items
+        // 按单集链接找到的节目：插件记下了这一期（可能早于最新那批），节目列表要重读才看得到
+        if (s.linkSearchOnly) {
+          for (const p of items) void queryClient.invalidateQueries({ queryKey: [s.serverId, 'podcast', p.id, 'episodes'] })
+        }
+        return items
+      },
       staleTime: 5 * 60 * 1000,
     })),
   })

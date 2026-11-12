@@ -118,12 +118,13 @@ module.exports = {
     // 节目就是 MusicItem（取流、歌词照常走），多一个私有字段
     //   podcast: { id, title, publishedAt?, description?, episode? }，宿主据此显示并记收听进度。
     podcast: {
-      async getEpisodes(podcastItem, page, order) {}, // order: 'newest' | 'oldest' -> { isEnd, data: MusicItem[], total? }
-      async getSubscribed(page) {},                   // -> { isEnd, data: PodcastItem[] }（要登录）
+      async getEpisodes(podcastItem, page, order) {}, // order: 'newest' | 'oldest' -> { isEnd, data: MusicItem[], total?, partial? }
+                                                      // partial: true = 只给得出一部分（如免登录只有最新一批），宿主不给「最早」排序并说明
+      async getSubscribed(page) {},                   // -> { isEnd, data: PodcastItem[] }（要登录；auth.kind 为 none 的插件订阅存本机，宿主当已登录）
       async getRecommended() {},                      // -> { isEnd, data: PodcastItem[] }
-      async search(query, page) {},                   // -> { isEnd, data: PodcastItem[] }
+      async search(query, page) {},                   // -> { isEnd, data: PodcastItem[] }（声明 podcastLinkSearch 的只认分享链接）
       async getDetail(podcastItem) {},                // -> PodcastItem（带 subscribed）
-      async setSubscribed(podcastItem, subscribed) {},// 要登录；宿主按写操作单独记退避
+      async setSubscribed(podcastItem, subscribed) {},// 要登录（auth.kind 为 none 的除外）；宿主按写操作单独记退避
     },
     async getMediaSource(musicItem, quality) {},     // 有则优先于顶层同名方法；-> { url, expiresAt?, headers?, mimeType? }
     async getSimilarSongs(musicItem, count) {},      // -> MusicItem[]（电台种子的相似曲；声明 capability `radio` 时必须实现）
@@ -246,6 +247,7 @@ interface MediaSource {
 | `recommendSongs` | 首页「今天听什么」与推荐页不合并该音源的每日推荐 |
 | `radio` | 曲目行与歌曲页的「以此开电台」不出现；电台种子来自哪个音源就只在那个音源里找相似（不回落主库） |
 | `podcasts` | 播客页不列该音源（订阅、推荐、搜索、节目列表都没有）；节目的收听进度只存在本机 |
+| `podcastLinkSearch` | 搭配 `podcasts`：`n1ko.podcast.search` 只认分享链接、没有关键词搜索。声明后播客页的搜索框提示「粘贴分享链接」，该音源没结果、没订阅时说明链接从哪来 |
 
 ## 7. 错误码
 

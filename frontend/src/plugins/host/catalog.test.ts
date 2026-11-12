@@ -58,6 +58,7 @@ describe('validateManifest · capabilities 只认协议里的名字', () => {
     const caps = [
       'search', 'album', 'artist', 'lyrics', 'userPlaylists', 'favorites', 'playlistWrite',
       'topLists', 'recommendSheets', 'recommendSongs', 'importSheet', 'libraryBrowse', 'radio', 'podcasts',
+      'podcastLinkSearch',
     ]
     expect(validateManifest({ ...base, capabilities: caps }).capabilities).toEqual(caps)
   })

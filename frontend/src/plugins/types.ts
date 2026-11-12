@@ -327,7 +327,7 @@ export interface PluginExports {
       getRecommended?(): Promise<Paged<PodcastItem>>
       search?(query: string, page: number): Promise<Paged<PodcastItem>>
       getDetail?(podcast: PodcastItem): Promise<PodcastItem>
-      getEpisodes?(podcast: PodcastItem, page: number, order: 'newest' | 'oldest'): Promise<Paged<MusicItem> & { total?: number }>
+      getEpisodes?(podcast: PodcastItem, page: number, order: 'newest' | 'oldest'): Promise<Paged<MusicItem> & { total?: number; partial?: boolean }>
       setSubscribed?(podcast: PodcastItem, subscribed: boolean): Promise<void>
     }
     getMediaSource?(musicItem: MusicItem, quality: 'low' | 'standard' | 'high' | 'super'): Promise<PluginMediaSource>

@@ -152,6 +152,33 @@ function ContinueRow({ entry }: { entry: EpisodeProgress }) {
   )
 }
 
+/**
+ * 只认分享链接的音源（免登录的小宇宙）：搜不到、没订阅时，告诉人链接从哪来。
+ * 一个音源一行，前面挂音源名，和「去登录」那一排同一个样子。
+ */
+function LinkSourceHint({ sources, textKey }: { sources: PodcastSource[]; textKey: 'podcast.linkSearchHint' | 'podcast.linkSubsHint' }) {
+  const { t } = useT()
+  if (!sources.length) return null
+  return (
+    <div className="sheet mb-5 px-4 py-1">
+      {sources.map(s => (
+        <div key={s.serverId} className="flex min-h-[52px] flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5">
+          <SourceBadge serverId={s.serverId} withName />
+          <span className="text-[14px] leading-relaxed text-ink-2">{t(textKey)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** 这些音源里，这一组查完了、一条都没有的 */
+function emptyIn(groups: SourceQueryGroup<Podcast[]>[], sources: PodcastSource[]): PodcastSource[] {
+  return sources.filter(s => {
+    const g = groups.find(x => x.serverId === s.serverId)
+    return !!g && g.status === 'success' && !(g.data?.length)
+  })
+}
+
 function LoginHint({ sources }: { sources: PodcastSource[] }) {
   const { t } = useT()
   const navigate = useNavigate()
@@ -204,6 +231,13 @@ export default function PodcastsPage() {
   const continueItems = resumable.filter(e => `${e.song.serverId}|${e.song.id}` !== currentSongKey).slice(0, 4)
 
   const loggedOut = sources.filter(s => !s.loggedIn)
+  const linkOnly = sources.filter(s => s.linkSearchOnly)
+  const allLinkOnly = linkOnly.length === sources.length
+  const linkOnlyNoResults = emptyIn(results, linkOnly)
+  const linkOnlyNoSubs = emptyIn(subscribed, linkOnly)
+  const placeholder = allLinkOnly
+    ? t('podcast.searchPlaceholderLinkOnly')
+    : linkOnly.length ? t('podcast.searchPlaceholderLink') : t('podcast.searchPlaceholder')
 
   const heading = (
     <h1 className="font-display text-[34px] font-bold leading-[1.05] tracking-[-0.03em] text-ink regular:text-[44px]">
@@ -248,8 +282,8 @@ export default function PodcastsPage() {
             setInput(e.target.value)
             if (!e.target.value.trim()) setQuery('')
           }}
-          placeholder={t('podcast.searchPlaceholder')}
-          aria-label={t('podcast.searchPlaceholder')}
+          placeholder={placeholder}
+          aria-label={placeholder}
           className="flex h-11 w-full rounded-pill border border-edge/80 bg-surface pl-10 pr-10 text-base text-ink transition-colors duration-2 placeholder:text-ink-3 hover:border-edge regular:text-[15px] [&::-webkit-search-cancel-button]:hidden"
         />
         {input && (
@@ -269,11 +303,13 @@ export default function PodcastsPage() {
           <div className="section-head">
             <h2 id="podcast-results">{t('podcast.searchResults')}</h2>
           </div>
+          <LinkSourceHint sources={linkOnlyNoResults} textKey="podcast.linkSearchHint" />
           <PodcastGroups
             groups={results}
             showSource={showSource}
             retryKey="search"
-            empty={<p className="py-6 text-[14.5px] text-ink-3">{t('podcast.searchEmpty')}</p>}
+            // 只有认链接的音源时，上面那行说明已经够了
+            empty={allLinkOnly ? null : <p className="py-6 text-[14.5px] text-ink-3">{t('podcast.searchEmpty')}</p>}
           />
         </section>
       ) : (
@@ -294,22 +330,26 @@ export default function PodcastsPage() {
               <h2 id="podcast-subscribed">{t('podcast.subscribed')}</h2>
             </div>
             {loggedOut.length > 0 && <LoginHint sources={loggedOut} />}
+            <LinkSourceHint sources={linkOnlyNoSubs} textKey="podcast.linkSubsHint" />
             {subscribed.length > 0 && (
               <PodcastGroups
                 groups={subscribed}
                 showSource={showSource}
                 retryKey="subscribed"
-                empty={<p className="py-2 text-[14.5px] leading-relaxed text-ink-3">{t('podcast.subsEmpty')}</p>}
+                empty={allLinkOnly ? null : <p className="py-2 text-[14.5px] leading-relaxed text-ink-3">{t('podcast.subsEmpty')}</p>}
               />
             )}
           </section>
 
-          <section aria-labelledby="podcast-recommended">
-            <div className="section-head">
-              <h2 id="podcast-recommended">{t('podcast.recommended')}</h2>
-            </div>
-            <PodcastGroups groups={recommended} showSource={showSource} retryKey="recommended" />
-          </section>
+          {/* 只有不给推荐的音源（小宇宙免登录）时，不留一个空的「为你推荐」 */}
+          {recommended.length > 0 && (
+            <section aria-labelledby="podcast-recommended">
+              <div className="section-head">
+                <h2 id="podcast-recommended">{t('podcast.recommended')}</h2>
+              </div>
+              <PodcastGroups groups={recommended} showSource={showSource} retryKey="recommended" />
+            </section>
+          )}
         </>
       )}
     </div>

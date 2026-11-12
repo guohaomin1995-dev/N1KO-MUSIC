@@ -109,8 +109,9 @@ export default function PodcastDetailPage() {
   const nameFromState = (location.state as { name?: string } | null)?.name
 
   const server = useServerStore(s => s.servers.find(x => x.id === serverId))
-  const loggedIn = !!server?.credentials
   const adapter = findAdapterFor(serverId)
+  // 没有账号这回事的音源（小宇宙免登录，订阅存在本机）不需要先登录
+  const loggedIn = !!server?.credentials || adapter?.accountless === true
   const canSubscribe = typeof adapter?.setPodcastSubscribed === 'function'
 
   const { data: podcast, isError, error, refetch } = usePodcast(serverId, podcastId)
@@ -118,6 +119,8 @@ export default function PodcastDetailPage() {
   const episodesQuery = usePodcastEpisodes(serverId, podcastId, order)
   const episodes = useMemo(() => episodesQuery.data?.pages.flatMap(p => p.episodes) ?? [], [episodesQuery.data])
   const total = episodesQuery.data?.pages[0]?.total ?? podcast?.episodeCount
+  // 音源只给得出一部分（免登录只有最新一批）：不给「最早」排序，说一句为什么
+  const partial = episodesQuery.data?.pages[0]?.partial === true
 
   const entries = usePodcastProgressStore(s => s.entries)
   const setFinished = usePodcastProgressStore(s => s.setFinished)
@@ -240,9 +243,14 @@ export default function PodcastDetailPage() {
 
       <section aria-labelledby="podcast-episodes" className="mt-8">
         <div className="section-head">
-          <h2 id="podcast-episodes">{t('podcast.allEpisodes')}</h2>
-          <OrderToggle value={order} onChange={setOrder} />
+          <h2 id="podcast-episodes">{t(partial ? 'podcast.latestEpisodes' : 'podcast.allEpisodes')}</h2>
+          {!partial && <OrderToggle value={order} onChange={setOrder} />}
         </div>
+        {partial && (
+          <p className="-mt-1 mb-4 max-w-3xl text-[13.5px] leading-relaxed text-ink-3">
+            {t('podcast.partialHint')}
+          </p>
+        )}
 
         {episodesQuery.isLoading ? (
           <SongRowsSkeleton rows={8} />

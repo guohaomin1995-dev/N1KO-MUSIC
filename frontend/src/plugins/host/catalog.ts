@@ -124,7 +124,7 @@ const KNOWN_CAPABILITIES = new Set([
   'search', 'album', 'artist', 'lyrics',
   'userPlaylists', 'favorites', 'playlistWrite',
   'topLists', 'recommendSheets', 'recommendSongs',
-  'importSheet', 'libraryBrowse', 'radio', 'podcasts',
+  'importSheet', 'libraryBrowse', 'radio', 'podcasts', 'podcastLinkSearch',
 ])
 
 /** 安装前校验 manifest 形状；不合法直接抛错并给出人话原因 */
