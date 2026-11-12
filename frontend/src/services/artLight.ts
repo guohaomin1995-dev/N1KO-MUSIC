@@ -6,10 +6,13 @@
  * 颜色本身由 token 拼出来，组件里不出现任何字面颜色。
  *
  * 取色在主线程做，但只读一张 40×40 的缩略图（约 1ms），且排在空闲时段。
- * 封面服务器不给 CORS 时画布会被污染、读不出像素：这时退回默认的「场灯」青柠，不报错。
+ * 封面服务器不给 CORS 时画布会被污染、读不出像素：App 里改用原生请求取回同一张图再读；
+ * 网页里读不到就返回 null，由调用方试下一张（或退回默认的「场灯」青柠），不报错。
  */
 
+import { Capacitor } from '@capacitor/core'
 import { rgbToOklch, hueDistance } from '@/lib/oklch'
+import { fetchExternalImage } from '@/services/externalFetch'
 import { STORAGE_KEYS } from '@/services/storageKeys'
 
 export interface ArtSwatch {
@@ -222,6 +225,18 @@ function round(v: number, digits = 1) {
 
 const inflight = new Map<string, Promise<ArtPalette | null>>()
 
+/** 把一张图缩成 40×40 读出像素；跨域污染、404、解码失败都会抛 */
+async function readPixels(src: string): Promise<Uint8ClampedArray | null> {
+  const img = await loadImage(src)
+  const canvas = document.createElement('canvas')
+  canvas.width = SAMPLE
+  canvas.height = SAMPLE
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE)
+  return ctx.getImageData(0, 0, SAMPLE, SAMPLE).data
+}
+
 /**
  * 取一张封面的调色板。
  * 图加载失败或画布读不到像素时返回 null，调用方再试下一张。
@@ -238,20 +253,20 @@ export function getPalette(url: string | undefined): Promise<ArtPalette | null> 
 
   const job = (async () => {
     try {
-      const img = await loadImage(url)
-      const canvas = document.createElement('canvas')
-      canvas.width = SAMPLE
-      canvas.height = SAMPLE
-      const ctx = canvas.getContext('2d', { willReadFrequently: true })
-      if (!ctx) return null
-      ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE)
-      const { data } = ctx.getImageData(0, 0, SAMPLE, SAMPLE)
+      let data = await readPixels(url).catch(() => null)
+      // 封面服务器不给跨域读（QQ 音乐的 y.qq.com）：画布读不到像素。App 里改用原生请求把同一张图取回来再读——
+      // 不然只能退回封面接口按歌名搜来的那张，那常常是别的歌的封面（《立夏居》取成了另一首《立夏》的玫瑰，满屏棕色）
+      if (!data && Capacitor.isNativePlatform() && /^https?:\/\//i.test(url)) {
+        const local = await fetchExternalImage(url).catch(() => null)
+        if (local) {
+          data = await readPixels(local).catch(() => null)
+          if (local.startsWith('blob:')) URL.revokeObjectURL(local)
+        }
+      }
+      if (!data) return null
       const palette = paletteFromPixels(data)
       remember(key, palette)
       return palette
-    } catch {
-      // 跨域污染、404、解码失败
-      return null
     } finally {
       inflight.delete(key)
     }

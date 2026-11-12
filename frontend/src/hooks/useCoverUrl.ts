@@ -8,6 +8,7 @@ import { useMemo } from 'react'
 import { useSettingsStore, coverUrlFromTemplate, type CoverSource } from '@/store/settingsStore'
 import { findAdapterFor } from '@/api'
 import { useCoverCacheStore } from '@/store/coverCacheStore'
+import { useServerStore } from '@/store/serverStore'
 
 interface CoverTarget {
   coverArt?: string
@@ -87,12 +88,17 @@ export function useCoverUrl(
 ): { primary: string | undefined; fallback: string | undefined } {
   const { coverSource, coverRemoteTemplate } = useSettingsStore()
   const { size = 300 } = options
+  // 来源连上（适配器登记）之前 findAdapterFor 拿不到，服务器封面是空的。插件音源冷启动要连好几秒：
+  // 不把「连没连上」算进依赖，这里就一直停在「没有服务器封面」——取色只能拿封面接口按歌名搜来的替补图
+  const sourceReady = useServerStore(s => (
+    target?.serverId ? s.connectedServerIds.includes(target.serverId) : !!s.activeServerId
+  ))
 
   return useMemo(() => {
     if (!target) return { primary: undefined, fallback: undefined }
 
     // 服务器封面（需要带鉴权的 URL）；来源未连接时降级为无服务器封面
-    const adapter = findAdapterFor(target.serverId)
+    const adapter = sourceReady ? findAdapterFor(target.serverId) : null
     const serverUrl = target.coverArt && adapter
       ? adapter.getCoverUrl(target.coverArt, size)
       : undefined
@@ -126,5 +132,5 @@ export function useCoverUrl(
     }
 
     return { primary, fallback }
-  }, [target, coverSource, coverRemoteTemplate, size])
+  }, [target, coverSource, coverRemoteTemplate, size, sourceReady])
 }

@@ -36,9 +36,11 @@ export function useArtLight() {
       setPalette(palette, url)
     }
 
-    const cached = urls.map(url => ({ url, palette: peekPalette(url) })).find(item => item.palette)
-    if (cached?.palette) {
-      apply(cached.palette, cached.url)
+    // 只认眼前这张封面（第一张）的缓存。后面几张是它加载失败时的替补——比如封面接口按歌名搜来的图，
+    // 常常是别的歌的封面；第一张还没取过色就先去取它，不能拿替补的旧缓存顶上
+    const first = peekPalette(urls[0])
+    if (first) {
+      apply(first, urls[0])
       return
     }
 
