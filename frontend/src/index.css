@@ -26,6 +26,8 @@
 
    颜色一律是 oklch 的三个通道（L C H），**不带 alpha**：
    tailwind.config 用 `oklch(var(--x) / <alpha-value>)` 消费，`bg-ink/40` 处处有效。
+   不认识 oklch() 的旧内核（WebView < 111，车机常见）由构建插件 postcss/oklch-fallback.mjs 补一份 rgb 写法，
+   跟着封面变的那些由 src/lib/oklchFallback.ts 在运行时算；新写的颜色照常用 oklch，不用管兜底。
    旧 token 名（paper / sheet / vivid / accent / shadcn 语义名）全部保留并映射到新值，
    没有重写到的组件也跟着换装。
    =================================================== */
