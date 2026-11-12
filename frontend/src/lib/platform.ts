@@ -1,6 +1,6 @@
 /**
  * 平台探测（Capacitor 原生壳 / Tauri 桌面壳 / 浏览器）
- * - isNativePlatform: 是否运行在 Android/iOS 原生 WebView 内
+ * - isNativePlatform: 是否运行在安卓原生壳的 WebView 内
  * - isTauriShell: 是否运行在 Tauri 桌面壳内（判定与 useDeepLinks 共用）
  * - useWindowClass: 窗口尺寸档位（compact / regular / wide），外壳按它切换布局
  * - pluginSourcesSupported: 插件音源（网易云 / QQ）能不能在当前壳里工作
@@ -10,18 +10,11 @@ import { useSyncExternalStore } from 'react'
 import { Capacitor } from '@capacitor/core'
 
 export const isNativePlatform = Capacitor.isNativePlatform()
-export const nativeOS: 'ios' | 'android' | 'web' = Capacitor.getPlatform() as 'ios' | 'android' | 'web'
+export const nativeOS: 'android' | 'web' = Capacitor.getPlatform() === 'android' ? 'android' : 'web'
 
 /** Tauri 注入的内部对象；useDeepLinks.ts 里的同款判定收敛到这里共用 */
 export const isTauriShell =
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-
-/**
- * macOS 桌面壳用的是 Overlay 标题栏：内容铺到窗口顶上，左上角是系统的红黄绿三个键。
- * 外壳左上角那一块（侧栏头、导航条顶端、侧栏收起后的工具栏）要让出它们的位置。
- */
-export const needsTrafficLightInset =
-  isTauriShell && typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
 
 /**
  * 插件音源需要一条能带 Cookie、不受 CORS 管的出网通道：桌面壳走 tauri-plugin-http，

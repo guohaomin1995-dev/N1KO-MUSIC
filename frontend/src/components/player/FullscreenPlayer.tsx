@@ -38,7 +38,7 @@ import { cn } from '@/lib/utils'
 import { useT } from '@/i18n'
 import { usePlayerStore, type RepeatMode } from '@/store/playerStore'
 import { isPodcastEpisode } from '@/store/podcastProgressStore'
-import { useWindowClass, needsTrafficLightInset, isNativePlatform } from '@/lib/platform'
+import { useWindowClass, isNativePlatform } from '@/lib/platform'
 import { haptic } from '@/lib/haptics'
 import { EASE_OUT, SPRING_MORPH, SPRING_PRESS, SPRING_SMOOTH, SPRING_SNAPPY, prefersReducedMotion } from '@/lib/motion'
 import { markSkip } from '@/lib/skipDirection'
@@ -910,7 +910,7 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
         'relative z-10 flex flex-none items-center gap-2 px-4 pb-2 transition-opacity duration-500 regular:px-6',
         lyricPage && !controlsOn && 'pointer-events-none opacity-0'
       )}
-      style={{ paddingTop: needsTrafficLightInset ? 40 : 'calc(env(safe-area-inset-top) + 10px)' }}
+      style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}
       data-fs-reveal=""
       {...dragHandlers}
     >

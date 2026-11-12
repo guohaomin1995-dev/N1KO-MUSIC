@@ -16,7 +16,6 @@ import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { SPRING_SNAPPY } from '@/lib/motion'
 import { useThemeToggle } from '@/hooks/useThemeToggle'
-import { needsTrafficLightInset } from '@/lib/platform'
 import { useThemeStore } from '@/store/themeStore'
 import { usePlaylists, useAddToPlaylist } from '@/hooks/useServerQueries'
 import { useSourceCapabilities } from '@/hooks/useSourceQueries'
@@ -191,7 +190,7 @@ export function AppSidebar() {
       }}
     >
       <div
-        className={cn('flex h-[60px] flex-none items-center justify-between pl-5 pr-2.5', needsTrafficLightInset && 'pt-6 h-[80px]')}
+        className="flex h-[60px] flex-none items-center justify-between pl-5 pr-2.5"
         data-tauri-drag-region
       >
         <NavLink to="/" className="min-w-0 truncate font-display text-[22px] font-bold tracking-[-0.04em] text-ink" aria-label={t('action.backHome')} title={appName}>

@@ -6,9 +6,6 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   backgroundColor: '#f8fafc',
   cleartext: true, // 允许明文 HTTP：用户自托管服务器常在局域网用 http://
-  ios: {
-    contentInset: 'never',
-  },
   android: {
     allowMixedContent: true, // 用户自托管服务器可能是 http://
   },

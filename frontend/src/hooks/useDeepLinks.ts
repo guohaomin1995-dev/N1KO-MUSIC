@@ -2,7 +2,7 @@
  * 接住系统投过来的 `n1ko://` 链接。
  *
  * 三个来源各有各的通道：
- *   - Capacitor（Android / iOS）：App 的 appUrlOpen 事件
+ *   - Capacitor（Android）：App 的 appUrlOpen 事件
  *   - Tauri（桌面）：deep-link 插件的事件
  *   - 浏览器：没有自定义协议，改用 `/open?url=…` 这条应用内路径，
  *     让 PWA 的 protocol_handlers 和外部脚本都有地方落
@@ -20,8 +20,7 @@ import { parseDeepLink, runDeepLinkCommand } from '@/services/deepLink'
  * 冷启动链接只处理一次，一个进程内有且仅有一次。
  *
  * 这个标记必须在模块级而不是组件级：Capacitor 的 `getLaunchUrl()` 在**整个进程
- * 生命周期内**都返回那条启动链接（Android 是 `Bridge.intentUri`，iOS 是
- * `ApplicationDelegateProxy.lastURL`，两者都只赋值一次、从不清空）。
+ * 生命周期内**都返回那条启动链接（安卓上是 `Bridge.intentUri`，只赋值一次、从不清空）。
  * 只要重新读一次，用户就会被拽回启动时那一页、队列被单曲替换、进度回到 0:00。
  */
 let launchUrlHandled = false

@@ -17,7 +17,7 @@ export type CoverSource = 'server_first' | 'remote_first' | 'remote_only' | 'ser
 
 /** 播放详情页封面样式 */
 export type CoverShape = 'square' | 'circle'
-/** 横屏卡片模式：auto = iPad / 手机横过来时；always = 电脑上的横屏窗口也用；off = 不用 */
+/** 横屏卡片模式：auto = 平板 / 手机横过来时；always = 电脑上的横屏窗口也用；off = 不用 */
 export type CardMode = 'auto' | 'always' | 'off'
 
 /** 电视模式：auto 跟着设备走（Android TV / Google TV 上自动打开），on / off 强制 */

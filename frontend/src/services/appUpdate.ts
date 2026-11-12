@@ -3,7 +3,7 @@
  * 就提示更新。安装包在 App 里下（原生 AppUpdaterPlugin，带进度、可取消，关掉弹窗也接着下），
  * 下完直接拉起系统安装界面覆盖安装；下不动时还能改用浏览器下载。
  *
- * 只在安卓原生壳里做：iOS 不能侧载安装包，桌面版和网页版另有更新方式。
+ * 只在安卓原生壳里做：桌面版和网页版另有更新方式。
  * GitHub 在国内经常连不上，检查失败时要说清楚「打开代理再试」，而不是一句「检查失败」。
  */
 import { Capacitor, CapacitorHttp, registerPlugin, type PluginListenerHandle } from '@capacitor/core'

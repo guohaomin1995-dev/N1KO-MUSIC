@@ -7,7 +7,7 @@
  *     收着导航放不下的入口、车载模式、明暗与断开连接（原底部「更多」+ 用户菜单）
  *
  * 内容滚到底下时铺上半透明纸色与模糊（滚动边缘效果）；三条提示横幅挂在它下面一起吸顶。
- * 空白处是 Tauri 的窗口拖拽区；macOS 桌面壳下侧栏收起时让出红黄绿三个键的位置。
+ * 空白处是 Tauri 的窗口拖拽区。
  */
 
 import type { ReactNode } from 'react'
@@ -17,7 +17,7 @@ import {
   SidebarSimple, SignOut, SquareHalf, SteeringWheel, Sun,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
-import { needsTrafficLightInset, type WindowClass } from '@/lib/platform'
+import type { WindowClass } from '@/lib/platform'
 import { useThemeStore } from '@/store/themeStore'
 import { useServerStore } from '@/store/serverStore'
 import { usePlayerStore } from '@/store/playerStore'
@@ -137,12 +137,11 @@ function ShellToolbar({ scrolled, titled, children }: ToolbarProps) {
   const sectionKey = sectionKeyFor(pathname)
   const canGoBack = historyIndex() > 0
   const wide = wc === 'wide'
-  const leftInset = needsTrafficLightInset && (wc === 'compact' || (wide && !sidebarVisible))
 
   return (
     <div className="sticky top-0 z-30" data-scrolled={scrolled || undefined}>
       <div
-        className={cn('scroll-edge flex items-center gap-1 px-3 regular:px-5', leftInset && 'pl-[84px]')}
+        className="scroll-edge flex items-center gap-1 px-3 regular:px-5"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)', paddingBottom: 8 }}
         data-tauri-drag-region
       >

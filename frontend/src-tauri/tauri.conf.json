@@ -20,8 +20,6 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true,
         "transparent": false
       }
     ],
@@ -39,17 +37,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app", "nsis", "msi", "deb", "rpm", "appimage"],
+    "targets": ["nsis", "msi", "deb", "rpm", "appimage"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "macOS": {
-      "minimumSystemVersion": "10.15",
-      "signingIdentity": "-"
-    }
+    ]
   }
 }

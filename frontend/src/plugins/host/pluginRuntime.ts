@@ -9,7 +9,7 @@
 
 import pkg from '../../../package.json'
 import { getLocale } from '@/i18n'
-import { isNativePlatform, isTauriShell, nativeOS } from '@/lib/platform'
+import { isNativePlatform, isTauriShell } from '@/lib/platform'
 import type { ServerConfig } from '@/api/types'
 import type { PluginManifest } from '../types'
 import { PluginAdapter } from '@/api/adapters/plugin'
@@ -28,8 +28,8 @@ interface LiveHost {
 
 const liveHosts = new Map<string, LiveHost>()
 
-function pluginPlatform(): 'ios' | 'android' | 'desktop' | 'web' {
-  if (isNativePlatform) return nativeOS === 'ios' ? 'ios' : 'android'
+function pluginPlatform(): 'android' | 'desktop' | 'web' {
+  if (isNativePlatform) return 'android'
   if (isTauriShell) return 'desktop'
   return 'web'
 }

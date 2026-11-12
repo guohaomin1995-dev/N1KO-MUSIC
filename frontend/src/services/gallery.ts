@@ -13,7 +13,7 @@ interface GalleryPlugin {
 
 const Gallery = registerPlugin<GalleryPlugin>('Gallery')
 
-/** 这个环境能不能直接存进相册（iOS / 桌面 / 网页版都不能，界面改提示截图） */
+/** 这个环境能不能直接存进相册（桌面 / 网页版都不能，界面改提示截图） */
 export function canSaveToGallery(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
 }

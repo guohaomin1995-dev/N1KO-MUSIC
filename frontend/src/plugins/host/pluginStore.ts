@@ -41,7 +41,7 @@ const BUILTIN_PLUGIN_IDS = ['netease', 'qqmusic']
 /**
  * 随包插件所在的目录名，和 vite.config.ts 的 n1koBundlePlugins 一致。
  * 原生壳里不能叫 plugins：`cap sync` 会把 public/plugins 删掉（留给 Cordova 插件 JS），
- * 安卓 / iOS 包里出厂目录就是 404。桌面版和网页版保持 plugins/，已装的内置音源才认得出是出厂的。
+ * 安卓包里出厂目录就是 404。桌面版和网页版保持 plugins/，已装的内置音源才认得出是出厂的。
  * 每次调用时读 MODE，测试里可以切换。
  */
 function bundledPluginsDir(): string {

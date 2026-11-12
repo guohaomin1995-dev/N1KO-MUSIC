@@ -408,7 +408,7 @@
   "settings.coverShape.square": "方形",
   "settings.coverShape.circle": "黑胶",
   "settings.cardMode.name": "横屏卡片模式",
-  "settings.cardMode.desc": "横过来时，正在播放换成一叠大封面，左右甩着挑歌。自动只在 iPad 和手机上；总是连电脑上的横屏窗口也用。",
+  "settings.cardMode.desc": "横过来时，正在播放换成一叠大封面，左右甩着挑歌。自动只在平板和手机上；总是连电脑上的横屏窗口也用。",
   "settings.cardMode.auto": "自动",
   "settings.cardMode.always": "总是",
   "settings.cardMode.off": "关闭",

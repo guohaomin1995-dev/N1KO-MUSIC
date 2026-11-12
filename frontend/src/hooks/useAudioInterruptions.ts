@@ -13,7 +13,6 @@
  * play / pause / nexttrack / previoustrack，useMediaSession 已经接住了。
  *
  * 这个判断只看数量，所以自己要防误判（「播着播着自己暂停」的嫌疑之一）：
- * - iOS 原生壳里不做：WebKit 在耳机被拔掉（旧设备不可用）时自己会停，用不着再猜一次；
  * - 页面在后台时不做：那时浏览器给的设备列表不可靠（可能整份是空的），只更新基数；
  * - 数到变少了，隔 600ms 再数一遍，还是少了才算——切换输出设备的那一下列表会抖。
  */
@@ -24,7 +23,6 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { toast } from '@/components/ui/use-toast'
 import { t } from '@/i18n'
 import { notePauseReason } from '@/lib/playbackTrail'
-import { nativeOS } from '@/lib/platform'
 
 /**
  * 插回耳机后多久之内算「同一次打断」。
@@ -52,7 +50,7 @@ export function useAudioInterruptions(): void {
   resumeRef.current = resumeAfterInterruption
 
   useEffect(() => {
-    if (nativeOS === 'ios' || !navigator.mediaDevices?.addEventListener) return
+    if (!navigator.mediaDevices?.addEventListener) return
 
     let outputCount: number | null = null
     /** 上一次因为设备消失而暂停的时刻；null 表示当前不是被打断的状态 */

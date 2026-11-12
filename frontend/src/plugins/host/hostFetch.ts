@@ -2,7 +2,7 @@
  * 宿主网络通道（PLAN §4.3）：沙箱插件的所有请求经这里出网。
  *
  * 四条通道，按运行环境选一条：
- *  - iOS / Android：CapacitorHttp（capacitorChannel.ts，绕开 WebView CORS）
+ *  - Android：CapacitorHttp（capacitorChannel.ts，绕开 WebView CORS）
  *  - Tauri 桌面：@tauri-apps/plugin-http（tauriChannel.ts，不受浏览器 CORS 约束）
  *  - 浏览器开发态：Vite 中间件 /__n1ko_proxy（devProxyChannel.ts，服务端再校验白名单）
  *  - 浏览器正式版：原生 fetch；CORS 失败翻译成可读提示（流媒体音源需要 App 或桌面版）

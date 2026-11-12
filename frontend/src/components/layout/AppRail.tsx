@@ -12,7 +12,6 @@ import { GearSix } from '@phosphor-icons/react'
 import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { SPRING_SNAPPY } from '@/lib/motion'
-import { needsTrafficLightInset } from '@/lib/platform'
 import { prefetchRoute } from '@/routes/lazyRoutes'
 import { useT } from '@/i18n'
 import { useAppName } from '@/hooks/useAppName'
@@ -54,7 +53,7 @@ export function AppRail() {
     >
       <NavLink
         to="/"
-        className={cn('mb-3 block max-w-[68px] truncate text-center font-display text-[12px] font-bold tracking-[-0.04em] text-ink', needsTrafficLightInset && 'mt-6')}
+        className="mb-3 block max-w-[68px] truncate text-center font-display text-[12px] font-bold tracking-[-0.04em] text-ink"
         aria-label={t('action.backHome')}
         title={appName}
         data-tauri-drag-region

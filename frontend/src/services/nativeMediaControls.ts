@@ -1,8 +1,7 @@
 /**
  * 原生媒体控制桥（仅 Capacitor 原生壳生效）
  * 把 playerStore 的播放状态同步到 capacitor-music-controls-plugin：
- * - Android：MediaStyle 前台服务通知（保证退后台音频不被挂起）
- * - iOS：MPRemoteCommandCenter 锁屏/控制中心 + AVAudioSession 后台续播
+ * - MediaStyle 前台服务通知（保证退后台音频不被挂起）
  * 事件回流：锁屏/通知上的 play/pause/next/previous/seek 调回 playerStore
  */
 
@@ -11,7 +10,7 @@ import { CapacitorMusicControls } from 'capacitor-music-controls-plugin'
 import { usePlayerStore } from '@/store/playerStore'
 import { seekHowl } from '@/hooks/useAudioEngine'
 import { findAdapterFor } from '@/api'
-import { isNativePlatform, nativeOS } from '@/lib/platform'
+import { isNativePlatform } from '@/lib/platform'
 import { notePauseReason } from '@/lib/playbackTrail'
 import { useSettingsStore } from '@/store/settingsStore'
 import { usePlaybackCover } from '@/hooks/usePlaybackCover'
@@ -292,18 +291,9 @@ export function useNativeMediaControls() {
     }
 
     const cleanups: Array<() => void> = []
-    if (nativeOS === 'android') {
-      const onDocumentEvent = (event: Event) => dispatch(event as unknown as RemoteEvent)
-      document.addEventListener('controlsNotification', onDocumentEvent)
-      cleanups.push(() => document.removeEventListener('controlsNotification', onDocumentEvent))
-    } else {
-      // iOS 端走 notifyListeners('controlsNotification')。系统面板那边 WKWebView 的 Media Session 也会接一份，
-      // 这里只照旧挂着，不改 iOS 现有的行为
-      const legacy = Object.keys(actions).map(name =>
-        CapacitorMusicControls.addListener(name, (info: RemoteEvent) => actions[name](info ?? { message: name }))
-      )
-      cleanups.push(() => legacy.forEach(p => p.then(h => h.remove()).catch(() => {})))
-    }
+    const onDocumentEvent = (event: Event) => dispatch(event as unknown as RemoteEvent)
+    document.addEventListener('controlsNotification', onDocumentEvent)
+    cleanups.push(() => document.removeEventListener('controlsNotification', onDocumentEvent))
 
     // 状态变化 → 原生控制
     const unsubscribe = usePlayerStore.subscribe((state, prev) => {

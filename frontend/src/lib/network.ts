@@ -5,13 +5,11 @@
  * 拉原始 FLAC，既费流量又容易卡。
  *
  * Network Information API 在 Android WebView 与 Chromium 上可用，
- * Safari / iOS WebView 上没有——那里退回「假定不是蜂窝」，
+ * Safari 上没有——那里退回「假定不是蜂窝」，
  * 宁可多用点流量，也不要在 Wi-Fi 上莫名其妙地降到 192kbps。
  *
- * 但「iOS 上没有」正是问题所在：iPhone 装成 App 之后跑在 WKWebView 里，
- * navigator.connection 恒为 undefined，于是蜂窝降级在最需要它的那台设备上
- * 从来没有生效过。@capacitor/network 早就在依赖里，它读的是系统网络状态，
- * 这里把它接上——原生壳内以它为准，浏览器内维持原有行为。
+ * 原生壳里接上 @capacitor/network（读的是系统网络状态）：原生壳内以它为准，
+ * 浏览器内维持原有行为。
  *
  * 插件接口是异步的，而 getConnectionType() 是同步的（调用方在构造流地址时
  * 要立刻拿到答案）。因此用一个缓存值：启动时读一次，之后靠监听更新。

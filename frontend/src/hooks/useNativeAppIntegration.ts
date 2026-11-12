@@ -21,9 +21,8 @@ export function useNativeAppIntegration() {
   const navigate = useNavigate()
 
   /**
-   * 原生壳里读一次系统网络状态并持续监听。
-   * 浏览器里的 navigator.connection 在 iOS WKWebView 上不存在，
-   * 不接这个插件的话，蜂窝降级在 iPhone 上永远不会触发。
+   * 原生壳里读一次系统网络状态并持续监听，蜂窝降级以它为准
+   * （比 WebView 里的 navigator.connection 可靠）。
    */
   useEffect(() => {
     void initNativeNetwork()

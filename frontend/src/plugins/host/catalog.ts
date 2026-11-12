@@ -92,8 +92,8 @@ export function assertSafeInstallUrl(rawUrl: string): void {
     throw new Error(`安装地址无法解析：${rawUrl}`)
   }
   /* 同源地址放行：开发态的 /__n1ko_plugins 与正式版随包的 /plugins 都是同源。
-     不能比 origin——Tauri（tauri://localhost）与 Capacitor iOS（capacitor://localhost）
-     是自定义 scheme，URL 规范下它们的 origin 序列化成 "null"，两边一比全相等，
+     不能比 origin——Tauri（tauri://localhost）是自定义 scheme，
+     URL 规范下它的 origin 序列化成 "null"，两边一比全相等，
      连 data: 都会被当成同源；按 protocol + host 逐项比才是「同一个壳」。 */
   const here = safeParse(typeof location !== 'undefined' ? location.href : undefined)
   const sameOrigin = !!here && u.host !== '' && u.protocol === here.protocol && u.host === here.host

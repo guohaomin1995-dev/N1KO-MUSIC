@@ -18,7 +18,6 @@ import {
 } from './services/historySync'
 import { syncNotes } from './services/notes'
 import { useSyncStore } from './store/syncStore'
-import { installWindowDrag } from '@/lib/windowDrag'
 import { installLegacyLayout } from '@/lib/legacyLayout'
 import { installOklchFallback } from '@/lib/oklchFallback'
 import { tvDeviceKnownNow, whenTvDeviceKnown } from '@/lib/tv'
@@ -108,9 +107,6 @@ function Bootstrap({ children }: { children: React.ReactNode }) {
   }
   return <>{children}</>
 }
-
-// 桌面版窗口拖拽的可靠实现（原因见 lib/windowDrag.ts）
-installWindowDrag()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={queryClient}>
