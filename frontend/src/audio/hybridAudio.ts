@@ -99,6 +99,25 @@ class HybridAudio extends EventTarget {
     return this.native ? this.srcValue : this.inner.currentSrc
   }
 
+  /*
+   * 引擎把它当 HTMLAudioElement 用，也会读写 src 属性（切歌残留检查、清空预载）。
+   * 不补这几个，安卓上「重挂监听」那条路一调 getAttribute 就抛 TypeError，后面的会话收尾全没挂上。
+   */
+  getAttribute(name: string): string | null {
+    if (name !== 'src') return this.inner.getAttribute(name)
+    return this.native ? this.srcValue || null : this.inner.getAttribute('src')
+  }
+
+  setAttribute(name: string, value: string): void {
+    if (name === 'src') this.src = value
+    else this.inner.setAttribute(name, value)
+  }
+
+  removeAttribute(name: string): void {
+    if (name === 'src') this.src = ''
+    else this.inner.removeAttribute(name)
+  }
+
   get currentTime(): number {
     return this.native ? this.current : this.inner.currentTime
   }
