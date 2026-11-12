@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" width="1280" height="420" role="img" aria-labelledby="title desc">
+  <title id="title">X-MUSIC</title>
+  <desc id="desc">为安卓打磨的私人音乐播放器：手机、平板、电视、车机</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#121317"/>
+      <stop offset="1" stop-color="#1c1e24"/>
+    </linearGradient>
+    <radialGradient id="glowLime" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#c6f36a" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#c6f36a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowWarm" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#d4542f" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#d4542f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cover" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0673c"/>
+      <stop offset="1" stop-color="#c6f36a"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2a24"/>
+      <stop offset="1" stop-color="#0d0f12"/>
+    </linearGradient>
+    <clipPath id="clip"><rect width="1280" height="420" rx="24"/></clipPath>
+
+    <!-- 每块屏里同一个「正在播放」：封面 + 两行字 + 进度条 -->
+    <symbol id="np" viewBox="0 0 100 60">
+      <rect x="8" y="10" width="34" height="34" rx="4" fill="url(#cover)"/>
+      <rect x="50" y="14" width="40" height="6" rx="3" fill="#f4f1e8" fill-opacity="0.9"/>
+      <rect x="50" y="25" width="26" height="5" rx="2.5" fill="#f4f1e8" fill-opacity="0.45"/>
+      <rect x="50" y="37" width="40" height="3" rx="1.5" fill="#f4f1e8" fill-opacity="0.18"/>
+      <rect x="50" y="37" width="22" height="3" rx="1.5" fill="#c6f36a"/>
+      <rect x="8" y="50" width="82" height="2" rx="1" fill="#f4f1e8" fill-opacity="0.08"/>
+    </symbol>
+  </defs>
+
+  <g clip-path="url(#clip)">
+    <rect width="1280" height="420" fill="url(#bg)"/>
+    <ellipse cx="930" cy="200" rx="420" ry="260" fill="url(#glowLime)"/>
+    <ellipse cx="120" cy="380" rx="360" ry="220" fill="url(#glowWarm)"/>
+
+    <!-- 唱片纹：和图标同一个意象 -->
+    <g fill="none" stroke="#f4f1e8" stroke-opacity="0.05">
+      <circle cx="96" cy="-30" r="150"/>
+      <circle cx="96" cy="-30" r="190"/>
+      <circle cx="96" cy="-30" r="230"/>
+      <circle cx="96" cy="-30" r="270"/>
+      <circle cx="96" cy="-30" r="310"/>
+    </g>
+
+    <!-- 左：字 -->
+    <g font-family="'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC','Source Han Sans SC','Helvetica Neue',Arial,sans-serif">
+      <rect x="80" y="86" width="336" height="34" rx="17" fill="#c6f36a" fill-opacity="0.1" stroke="#c6f36a" stroke-opacity="0.55"/>
+      <text x="248" y="109" text-anchor="middle" font-size="16" font-weight="600" fill="#c6f36a" letter-spacing="1">ANDROID · 手机 · 平板 · 电视 · 车机</text>
+      <text x="76" y="214" font-size="104" font-weight="800" fill="#f4f1e8" letter-spacing="-3">X-MUSIC</text>
+      <text x="82" y="266" font-size="32" font-weight="600" fill="#e4e1d7">为安卓打磨的私人音乐播放器</text>
+      <text x="82" y="306" font-size="19" fill="#9b988f">自建曲库 · 网易云 / QQ 音乐 · 播客 · 无损直通</text>
+    </g>
+
+    <!-- 右：四块屏 -->
+    <g font-family="'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif" font-size="14" fill="#8f8c84" text-anchor="middle">
+      <!-- 电视 -->
+      <rect x="770" y="54" width="340" height="200" rx="12" fill="#25272d" stroke="#3b3e46"/>
+      <rect x="780" y="64" width="320" height="180" rx="6" fill="url(#screen)"/>
+      <use href="#np" x="800" y="86" width="280" height="168"/>
+      <path d="M915 254 h50 l8 18 h-66 z" fill="#25272d" stroke="#3b3e46"/>
+      <text x="1140" y="80" text-anchor="start">电视</text>
+
+      <!-- 平板 -->
+      <rect x="664" y="200" width="236" height="160" rx="16" fill="#25272d" stroke="#3b3e46"/>
+      <rect x="676" y="212" width="212" height="136" rx="8" fill="url(#screen)"/>
+      <use href="#np" x="684" y="226" width="196" height="118"/>
+      <text x="782" y="386">平板</text>
+
+      <!-- 手机 -->
+      <rect x="918" y="218" width="88" height="164" rx="16" fill="#25272d" stroke="#3b3e46"/>
+      <rect x="925" y="230" width="74" height="140" rx="9" fill="url(#screen)"/>
+      <rect x="937" y="246" width="50" height="50" rx="5" fill="url(#cover)"/>
+      <rect x="937" y="306" width="50" height="6" rx="3" fill="#f4f1e8" fill-opacity="0.9"/>
+      <rect x="937" y="317" width="34" height="5" rx="2.5" fill="#f4f1e8" fill-opacity="0.45"/>
+      <rect x="937" y="334" width="50" height="3" rx="1.5" fill="#f4f1e8" fill-opacity="0.18"/>
+      <rect x="937" y="334" width="28" height="3" rx="1.5" fill="#c6f36a"/>
+      <text x="962" y="404">手机</text>
+
+      <!-- 车机：横长的中控屏 + 仪表台 -->
+      <path d="M1012 362 q118 -26 252 0" fill="none" stroke="#3b3e46" stroke-width="3"/>
+      <rect x="1026" y="262" width="214" height="92" rx="12" fill="#25272d" stroke="#3b3e46"/>
+      <rect x="1034" y="270" width="198" height="76" rx="6" fill="url(#screen)"/>
+      <use href="#np" x="1040" y="272" width="120" height="72"/>
+      <rect x="1166" y="292" width="54" height="6" rx="3" fill="#f4f1e8" fill-opacity="0.3"/>
+      <rect x="1166" y="306" width="40" height="6" rx="3" fill="#f4f1e8" fill-opacity="0.18"/>
+      <text x="1133" y="390">车机</text>
+    </g>
+  </g>
+</svg>

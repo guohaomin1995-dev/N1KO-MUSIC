@@ -36,7 +36,7 @@ function tableRows(md: string, sourceName: string): string[] {
 
 describe('README 能力表 ⊆ manifest（6.5）', () => {
   it('网易云音乐（中文）表内每项能力都有 manifest 声明', () => {
-    const md = readFileSync(resolve(repoRoot, 'README_CN.md'), 'utf8')
+    const md = readFileSync(resolve(repoRoot, 'README.md'), 'utf8')
     const rows = tableRows(md, '网易云音乐')
     expect(rows.length).toBeGreaterThan(0)
     const caps = manifestCaps('netease')
@@ -48,7 +48,7 @@ describe('README 能力表 ⊆ manifest（6.5）', () => {
   })
 
   it('NetEase Cloud Music（英文）表同上', () => {
-    const md = readFileSync(resolve(repoRoot, 'README.md'), 'utf8')
+    const md = readFileSync(resolve(repoRoot, 'README_EN.md'), 'utf8')
     const rows = tableRows(md, 'NetEase Cloud Music')
     expect(rows.length).toBeGreaterThan(0)
     const caps = manifestCaps('netease')
@@ -60,8 +60,8 @@ describe('README 能力表 ⊆ manifest（6.5）', () => {
   })
 
   it('QQ 音乐两表内每项能力都有 manifest 声明', () => {
-    const cn = readFileSync(resolve(repoRoot, 'README_CN.md'), 'utf8')
-    const en = readFileSync(resolve(repoRoot, 'README.md'), 'utf8')
+    const cn = readFileSync(resolve(repoRoot, 'README.md'), 'utf8')
+    const en = readFileSync(resolve(repoRoot, 'README_EN.md'), 'utf8')
     const qqRows = [...tableRows(cn, 'QQ 音乐'), ...tableRows(en, 'QQ Music')]
     expect(qqRows.length).toBeGreaterThan(0)
     const caps = manifestCaps('qqmusic')

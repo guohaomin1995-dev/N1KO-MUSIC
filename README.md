@@ -1,517 +1,236 @@
 <div align="center">
 
-<img src="docs/logo.png" alt="N1KO MUSIC" width="96" height="96" />
-
-# N1KO MUSIC
-
-**Your own library, played well**
-
-Point it at Navidrome / Subsonic / Jellyfin / Emby and play the music on your own NAS.
-No NAS? Sign in with your own NetEase Cloud Music or QQ Music account (QQ or WeChat QR)
-and listen anyway. iPhone, iPhone Duo, iPad and the desktop each get a layout that fits.
-
-[![Release](https://img.shields.io/github/v/release/baogutang/N1KO-MUSIC?style=flat-square&color=4f46e5&label=release)](https://github.com/baogutang/N1KO-MUSIC/releases/latest)
-[![Stars](https://img.shields.io/github/stars/baogutang/N1KO-MUSIC?style=flat-square&color=4f46e5&label=stars)](https://github.com/baogutang/N1KO-MUSIC/stargazers)
-[![License](https://img.shields.io/github/license/baogutang/N1KO-MUSIC?style=flat-square&color=555)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20·%20Windows%20·%20Linux%20·%20Android%20·%20iOS%20·%20Web-555?style=flat-square)](https://github.com/baogutang/N1KO-MUSIC/releases/latest)
-
-**[🌐 Website](https://baogutang.github.io/N1KO-MUSIC/)** ·
-**[⬇ Download](https://github.com/baogutang/N1KO-MUSIC/releases/latest)** ·
-**[中文](README_CN.md)** ·
-**[Translate it](TRANSLATING.md)**
+<img src="docs/x-music-banner.svg" alt="X-MUSIC：为安卓打磨的私人音乐播放器，手机、平板、电视、车机" width="100%" />
 
 <br/>
 
-<img src="docs/screenshots/v6/home.png" alt="N1KO MUSIC on an iPad in landscape: sidebar, home page and the Now Playing panel side by side" width="860" />
+手机、平板、电视、车机，一个安装包全都适配。<br/>
+连上自己 NAS 里的曲库，或者用自己的网易云 / QQ 音乐账号扫码登录，听你本来就有权听的歌。
+
+[![最新版本](https://img.shields.io/github/v/release/guohaomin1995-dev/N1KO-MUSIC?style=flat-square&color=a3e635&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC)](https://github.com/guohaomin1995-dev/N1KO-MUSIC/releases/latest)
+[![下载量](https://img.shields.io/github/downloads/guohaomin1995-dev/N1KO-MUSIC/total?style=flat-square&color=555&label=%E4%B8%8B%E8%BD%BD)](https://github.com/guohaomin1995-dev/N1KO-MUSIC/releases)
+[![Android 7.0+](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](#-安装)
+[![License](https://img.shields.io/badge/license-MIT-555?style=flat-square)](LICENSE)
+
+**[⬇ 下载 APK](https://github.com/guohaomin1995-dev/N1KO-MUSIC/releases/latest)** ·
+**[更新日志](https://github.com/guohaomin1995-dev/N1KO-MUSIC/releases)** ·
+**[English](README_EN.md)**
 
 </div>
 
 <br/>
 
-## From the same author · N1KO-API
+## ✦ 一个安装包，四块屏
 
-[![N1KO-API — one key, every model: Claude / GPT / Gemini, OpenAI-compatible, pay as you go](docs/n1ko-api-banner.svg)](https://token.baogutang.top)
-
-> If you build with AI, this one is for you: **[N1KO-API](https://token.baogutang.top)** — a
-> subscription-to-API relay platform. One key for Claude, GPT and Gemini flagships, smart
-> routing with instant failover, 99.9% SLA, transparent pay-as-you-go billing. Support QQ: 783246411.
-
-<br/>
-
-## Stage light
-
-Most music clients are admin panels with album art: tables, filters and counts, organised around what the server holds.
-N1KO MUSIC wants to be a player you leave open all day. v6 rebuilt the interface around one idea: **the song that is playing is the light in the room.**
-
-|  | |
-|---|---|
-| **The room takes the colour of the song** | The shell is a quiet porcelain white (graphite at night), and the cover of the current track washes it in its own colour. Only the hue is taken; lightness is fixed per theme, so text stays just as readable whatever the cover. When the track changes, the new colour spreads outward from the cover. |
-| **The lights go down** | The full-screen player is always a dark stage: the background is a light field sampled from the cover, four soft lights drifting slowly; lyrics are set large and the current line is fully lit. Opening it unfolds the stage from the player bar while the cover flies over from the mini player; closing it reverses the trip. |
-| **Turn it sideways to pick** | Turn an iPad or a phone sideways and Now Playing becomes a stack of large covers, like the iPhone app switcher: Up Next, For You, Albums, Playlists and Favourites. Fling it hard and it flies through the stack, then settles on a card; tap the card in front to play it. Upright, the playing cover still flicks: left for the next track, right for the previous one. Settings can turn the stack off, or use it in landscape windows on a computer too. |
-| **It moves like a thing** | Every press answers immediately and settles back without wobble; drags follow the finger, keep their velocity and can be interrupted at any time. Mouse wheels get an inertial glide (trackpads and touch already have one, so they are left alone), shelves snap card by card, and switching light and dark spreads out from the toggle. With Reduce Motion on, movement turns into plain fades. |
-| **Window-shaped, not device-shaped** | A narrow window gets a floating tab bar, a medium one a navigation rail, a wide one an iPadOS-style sidebar plus a Now Playing panel. |
-| **Nuomi and Maodou** | A white bunny in overalls and a green frog in headphones. They only appear when there is nothing else to look at: the splash, the welcome screen, an empty list, an error, with one pose per state. |
-| **Nothing made up** | Every generated sentence in the app (editor's notes, rediscovery reasons, taste weights) is built from real numbers. If the data cannot carry a sentence, the sentence does not appear. |
-
-Headings and large figures use Geologica (self-hosted); the interface uses the system font (SF / PingFang). Sound quality was not traded for any of it:
-FLAC / WAV / ALAC play untouched, 320 / 192 / 128 kbps are there when bandwidth is tight, and ReplayGain uses the gain your server already computed.
-
-Free and open source. No account, no tracking, no paid tier.
-
-The design contract (tokens, components, motion rules) is in [`DESIGN.md`](DESIGN.md). Nuomi and Maodou are the author's own characters, © N1KO and not licensed under MIT;
-the source renders, the prompts behind them and the local cut-out script are in [`docs/redesign/v6/mascots/`](docs/redesign/v6/mascots/).
-
-<br/>
-
-## Interface
+同一个 App 在不同的屏幕上换不同的样子——不是把手机界面拉大，而是每种屏幕各有一套为它设计的布局和操作方式。
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/v6/player.png" alt="Now Playing in landscape: a light field sampled from the cover, the cover and controls, large lyrics" /></td>
-<td width="50%"><img src="docs/screenshots/v6/cards.png" alt="Cards in landscape on iPad: the playing track in front, For You stacked up to the right, the previous card peeking in on the left, a mini player underneath" /></td>
+<td width="50%" valign="top">
+
+### 📱 手机
+
+- 底部悬浮标签栏，单手够得着
+- 播放页三种视图：**封面 / 歌词 / 接下来**；在封面上左右一划就切歌
+- 横过来变成一叠大封面，左右甩着挑歌
+- 通知栏、锁屏、有线耳机、蓝牙按键都能控制播放
+
+</td>
+<td width="50%" valign="top">
+
+### 💻 平板
+
+- 横屏是侧栏 + 正在播放面板，竖屏、分屏各有一套布局
+- **天际屏风格的歌词页**：玻璃质感的字，唱到哪染到哪，两侧散落这一句里的字和它们的投影
+- 界面和歌词页的颜色跟着封面走
+- 外接键盘时，全套快捷键都能用
+
+</td>
 </tr>
 <tr>
-<td><b>Now Playing</b>: in a landscape window the cover and controls sit on the left, lyrics stay on the right; tap any line to jump to it.</td>
-<td><b>Cards in landscape</b>: Up Next, For You, albums, playlists and favourites as a stack of covers you fling through. Tap the one in front to play it.</td>
-</tr>
-<tr>
-<td width="50%"><img src="docs/screenshots/v6/home-dark.png" alt="Home in dark mode" /></td>
-<td width="50%"><img src="docs/screenshots/v6/album.png" alt="An album page on iPad in landscape: a large cover, the tracks and a margin note" /></td>
-</tr>
-<tr>
-<td><b>Dark</b>: graphite at night, with the room lit by the current cover. Follows the system setting.</td>
-<td><b>Album page</b>: tap a card and its cover flies into place; scroll and the header folds away. Tracks, liner notes and your own margin note live on one page.</td>
-</tr>
-<tr>
-<td colspan="2" align="center"><img src="docs/screenshots/v6/login.png" alt="The connect page: Nuomi and Maodou waving hello" width="50%" /></td>
-</tr>
-<tr>
-<td colspan="2" align="center"><b>Connect</b>: self-hosted servers and streaming sources both start here.</td>
+<td width="50%" valign="top">
+
+### 📺 电视 · 电视盒子
+
+- 自动认出安卓电视和电视盒子，切到**遥控器布局**
+- 方向键能走到每一个按钮，选中的按钮放大、黑白反色，一眼看清在哪
+- 左侧导航条，焦点移进去就展开；确认键打开，返回键退出
+- 系统 WebView 老到 **Chrome 83** 的盒子也能正常显示
+
+</td>
+<td width="50%" valign="top">
+
+### 🚗 车机
+
+- **车载模式**：超大按钮、左右滑动切歌、屏幕常亮
+- 兼容老内核车机：系统 WebView 不认新的颜色写法，深色模式照样清楚
+- 横长的中控屏也排得开
+- 方向盘和蓝牙的媒体按键能切歌、暂停
+
+</td>
 </tr>
 </table>
 
-<p align="center">
-<img src="docs/screenshots/v6/phone.png" alt="Home on iPhone" height="360" />&nbsp;
-<img src="docs/screenshots/v6/phone-player.png" alt="Now Playing on iPhone" height="360" />&nbsp;
-<img src="docs/screenshots/v6/duo-tabletop.png" alt="Now Playing on a half-folded iPhone Duo" height="360" />&nbsp;
-<img src="docs/screenshots/v6/ipad-portrait.png" alt="An album page on iPad in portrait" height="360" />
-</p>
+<br/>
 
-<sub>Left to right: Home on iPhone (floating tab bar and mini player; swipe the mini player to change tracks), Now Playing on iPhone, a half-folded iPhone Duo (lyrics above the fold, cover and controls below), an album page on iPad in portrait (navigation rail).</sub>
+## ✦ 截图
+
+<table>
+<tr>
+<td colspan="2"><img src="docs/screenshots/android/tablet-lyrics.jpg" alt="平板横屏的歌词页：玻璃质感的当前句，两侧散落的字和投影，聚光灯照着正在唱的位置" /></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><sub><b>平板 · 天际屏风格歌词页</b>：烟雾、聚光灯、玻璃字，两侧散落这一句里的字</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/android/tv-home.jpg" alt="电视首页：遥控器焦点停在「继续播放」上，下面是今天听什么" /></td>
+<td width="50%"><img src="docs/screenshots/android/tv-player.jpg" alt="电视的正在播放：左边圆形封面，右边滚动歌词，下面是大号播放控件" /></td>
+</tr>
+<tr>
+<td align="center"><sub><b>电视 · 首页</b>：焦点停在哪，一眼就能看到</sub></td>
+<td align="center"><sub><b>电视 · 正在播放</b>：坐在沙发上也看得清</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/android/phone-landscape.jpg" alt="手机横屏的正在播放：左边歌名和播放控件，右边歌词" /></td>
+<td width="50%"><img src="docs/screenshots/android/car.jpg" alt="车载模式：超大的歌名、进度条和三个播放按钮" /></td>
+</tr>
+<tr>
+<td align="center"><sub><b>手机 · 横屏播放页</b>：左边控制，右边歌词</sub></td>
+<td align="center"><sub><b>车机 · 车载模式</b>：开车时也按得准</sub></td>
+</tr>
+</table>
 
 <br/>
 
-## On iPad and iPhone Duo
+## ✦ 能听什么
 
-**iPad.** In landscape the sidebar, the page and the Now Playing panel sit side by side
-(the panel opens by default in windows wider than 1180 points). Portrait or half-screen
-Split View switches to a side rail; Slide Over gets the iPhone layout. With a Magic Keyboard
-or a trackpad attached:
+### 自己的曲库
 
-- Hold ⌘ for a second to see every shortcut
-- ⌘1 / ⌘2 / ⌘3 Home, For You, Library; ⌘F search; ⌘L full screen lyrics; ⌘[ / ⌘] back and forward
-- ⌃⌘S hides or shows the sidebar; ⌥⌘P toggles the Now Playing panel
-- Right-click a song for its menu (same as a long press); drag songs with the trackpad into Up Next or a sidebar playlist
+| 来源 | 状态 | 说明 |
+|---|---|---|
+| [Navidrome](https://www.navidrome.org/) | ✅ 推荐 | 体验最好，测试最充分 |
+| [Subsonic](http://www.subsonic.org/) / [Airsonic](https://airsonic.github.io/) | ✅ 支持 | 完整兼容 Subsonic API |
+| [Jellyfin](https://jellyfin.org/) / [Emby](https://emby.media/) | ✅ 支持 | 原生 API 对接 |
+| WebDAV | ✅ 支持 | 直接读 NAS 上的音乐文件夹，不用另装音乐服务器 |
 
-**iPhone Duo.** The cover screen gets the iPhone layout; unfolded you get a side rail, after
-the way QQ Music handles the Duo. Stand it half folded and Now Playing splits in two: lyrics
-above the hinge, the cover strip and controls below. Browsers report the fold through the
-Device Posture / Viewport Segments APIs; the native iOS shell cannot see it yet (WebKit does
-not expose the posture), so it needs a small native bridge, which is planned.
+分享、评分、断点续播、多音乐库、电台这些能力是**探测出来的**：你的服务器不支持哪一项，那个入口就不出现，而不是点了报错。
+局域网里用 `http://` 地址的服务器也能直接连。
 
-<br/>
+### 流媒体音源
 
-## Departments
+没有 NAS，或者 NAS 上没有的歌，用你自己的账号登录就能听。
 
-### ♫ Playback
+| 音源 | 登录 | 能做什么 |
+|---|---|---|
+| 网易云音乐 | 网易云 App 扫码 | 搜索、我的歌单、收藏、每日推荐、榜单、歌词、加入 / 移出歌单、播客 |
+| QQ 音乐 | QQ / 微信扫码 | 搜索、我的歌单、收藏、雷达推荐、榜单、歌词 |
+| 小宇宙 | 不用登录 | 播客：粘贴分享链接找节目，订阅存在本机 |
 
-- **Real whole-library shuffle** — a random sample drawn from the server, not a
-  reshuffle of the loaded page. The queue shows the **actual play order** and
-  reshuffles cleanly on wrap.
-- **Lossless passthrough** (FLAC / WAV / ALAC) plus 320 / 192 / 128kbps tiers,
-  with **separate Wi-Fi and cellular settings** switched automatically.
-- **ReplayGain** applied from the gain your server already computed — masters
-  from different decades stop jumping in loudness.
-- **The queue keeps going** — similar tracks append when it runs dry; any song,
-  artist or genre can seed a radio.
-- **Continue listening & cross-device resume** — long tracks you stopped halfway
-  come back on the home page with your position, restored from the bookmark your
-  server already holds.
-- Sleep timer that fades rather than cuts · a play button that breathes while it
-  buffers · gapless-ish preloading · 0.5–3× speed with pitch correction.
+它们和自己的曲库**并列**：搜索按来源分组，首页的「今天听什么」把各家的每日推荐交错成一列，队列里可以混着放。
 
-### ⌘ Control
-
-- **Multi-select and batch actions on every list** — ⌘/Ctrl-click, Shift-range,
-  long-press on touch. Play, queue, add to playlist, favourite, all at once.
-- **Full Media Session integration** — proper **Windows SMTC, macOS Now Playing,
-  Linux MPRIS** and Android/iOS lock screens, with a working scrubber, 1024px
-  artwork and **configurable buttons** (track skip for music, ±15s for audiobooks).
-- **Headphone unplug pauses** instead of broadcasting to the room; plug back in
-  within a minute to resume.
-- **Car mode** — 112–128px targets, swipe to change track, screen kept awake.
-- **`n1ko://` deep links**, ⌘K command palette, global shortcuts, full keyboard
-  control, alphabet rail, and scroll memory that restores where you were.
-
-### ☰ Library
-
-- Songs, albums, artists and playlists in one place, **virtualised** so a
-  ten-thousand track library stays smooth — with an **offline metadata cache**
-  so cold starts show last time's library immediately.
-- **Liner notes** (personnel, ISRC, MusicBrainz pressing details) and a
-  **spec plate** (bit depth, sample rate, codec, real bitrate).
-- **Discography rail** — an artist's records read as a career down a hairline
-  year rail, not a wall of covers.
-- **Turn a queue into a playlist** — saved in the order you were hearing it.
-  Edit playlists in place; drag to reorder the queue.
-- Shares, ratings, rescan, multi-library, "who else is listening" — **detected,
-  not assumed**. A Navidrome with sharing off simply has no share button.
-
-### ✎ Yours
-
-- **《本期》 / This Issue** — every month becomes an issue on its own: cover
-  story, rankings, superlatives, first-heard. The editor's note invents nothing.
-- **Rediscover** — *on this day*, *long unplayed*, *heard once*. What you already
-  loved and are quietly losing.
-- **Marginalia** — write your own note on any song, album or artist. It is the
-  one thing here that cannot be recomputed, so it syncs and backs up first.
-- **An editable taste profile** — see the literal weights the recommender scores
-  with; switch off any artist or genre for good. A hard filter, not a demotion.
-- **Import scrobbles** from ListenBrainz / Last.fm exports, and **export
-  everything** — playlists as M3U8/XSPF, history as JSON/CSV, generated in the
-  browser, never uploaded.
-
-### ⚙ The details that took the longest
-
-Thin spaces between CJK and Latin runs, hanging punctuation, slashed-zero
-tabular numerals · credentials encrypted at rest with a non-extractable device
-key · a persistent offline banner with retry, not a toast that vanishes ·
-`aria-pressed` toggles, WCAG AA contrast, `prefers-reduced-motion` honoured ·
-the full shortcut set on an iPad keyboard, one held ⌘ away.
+> **你有权听什么，这里就放什么。** 会员曲你的账号没权限，就标成 VIP 并告诉你原因，不做任何解析、破解。
+> 这些接口来自社区整理，不是官方开放接口，平台一改可能失效，会跟着修，但不保证永远可用。
 
 <br/>
 
-## Supported servers
+## ✦ 听感与细节
 
-| Server | Status | Notes |
-|--------|------|------|
-| [Navidrome](https://www.navidrome.org/) | ✅ Recommended | Best experience, fully tested |
-| [Subsonic](http://www.subsonic.org/) | ✅ Supported | Full Subsonic API compatibility |
-| [Airsonic](https://airsonic.github.io/) / [Airsonic-Advanced](https://github.com/airsonic-advanced/airsonic-advanced) | ✅ Supported | Subsonic-compatible forks |
-| [Jellyfin](https://jellyfin.org/) | ✅ Supported | Native API integration |
-| [Emby](https://emby.media/) | ✅ Supported | Native API integration |
+- **无损直通**：FLAC / WAV / ALAC 原样播放；Wi-Fi 和移动网络分别设音质（无损 / 320 / 192 / 128 kbps），出门自动切
+- **ReplayGain**：用服务器算好的增益，不同年代的母带不再忽大忽小
+- **封面取色**：整个界面和全屏播放页跟着当前封面换颜色
+- **歌词补全**：服务器没有歌词时，按歌名和歌手去歌词接口查
+- **真正的全库随机**；队列放完自动接相似的歌
+- **拔耳机立刻暂停**，一分钟内插回来接着放
+- 睡眠定时渐弱、0.5–3 倍速、断点续播
+- **应用内更新**：有新版本时 App 里直接下载、安装
 
-Optional server features — shares, ratings, bookmarks, multi-library, rescan,
-radio, now-playing — are **detected, not assumed**. If your server does not
-implement one, the entry does not appear at all rather than failing when tapped.
+<br/>
+
+## ✦ 安装
+
+在 **[Releases](https://github.com/guohaomin1995-dev/N1KO-MUSIC/releases/latest)** 下载 `X-MUSIC-x.y.z.apk`，支持 Android 7.0 及以上。
+
+**手机 / 平板**：点开 APK 安装（第一次要允许「安装未知来源应用」）。以后有新版本，App 里会提示「下载更新」。
+
+**电视 / 电视盒子**：U 盘拷进去用文件管理器安装，或者在电脑上用 adb：
+
+```bash
+adb connect 电视的IP:5555
+```
+
+```bash
+adb install X-MUSIC-x.y.z.apk
+```
+
+打开后自动进入电视模式；**设置 → 电视模式**可以手动切换「自动 / 开 / 关」。
+
+**车机**：把 APK 拷进 U 盘，用车机自带的文件管理器打开安装。开车时建议在设置里进入「车载模式」。
+
+> GitHub 下载很慢或者下不下来，先打开代理（VPN）再试。
 
 <details>
-<summary>Related searches</summary>
-<sub>Navidrome client · Navidrome desktop app · Subsonic client · Subsonic music player · Jellyfin music player · Emby music player · NAS music player · self-hosted music player · music streaming client · Airsonic client · NetEase Cloud Music desktop client · QQ Music desktop client</sub>
+<summary><b>常见问题</b></summary>
+
+<br/>
+
+**安装时提示「与已安装的应用签名不一致」，装不上**
+设备上装过别处打包的版本，签名不同，不能直接覆盖。先卸载旧的再装（会清掉这台设备上的登录和设置）：
+
+```bash
+adb uninstall cn.baogutang.musicstreampro
+```
+
+之后再升级就能直接覆盖，数据和登录都会保留。
+
+**车机上深色模式白底白字、播放页的按钮黑成一片**
+老内核 WebView 不认新的颜色写法，1.18.4 起已兜底。请升级到最新版。
+
+**电视上扫码登录，二维码一直出不来**
+多半装的是缺原生组件的改版安装包。卸载后装这里发布的 1.18.7 或更新版本。
+
+**有的歌放不了，显示 VIP**
+你的账号对这首歌没有播放权限。X-MUSIC 只放你的账号本来就能放的歌。
+
 </details>
 
 <br/>
 
-## Streaming sources · NetEase Cloud Music / QQ Music
+## ✦ 隐私
 
-No NAS, or a song your NAS does not have? Sign in with your own account and
-listen — **whatever your account is entitled to, and nothing more**. A track
-your subscription does not cover is marked VIP with the reason spelled out;
-there is no "unlocking" of any kind.
-
-| Source | Sign-in | What works |
-|------|------|------|
-| NetEase Cloud Music | QR scan from the phone app | Search, your playlists, favourites, daily picks, charts, lyrics, add to / remove from playlists, podcasts |
-| QQ Music | QR scan from the QQ or WeChat app | Search, your playlists, favourites, radar picks, charts, lyrics |
-| Xiaoyuzhou | No sign-in | Podcasts: find shows by share link, each show's latest episodes, subscriptions kept on the device |
-
-They sit **alongside** your NAS rather than replacing it: search is grouped by
-source with an "All" view merged by relevance; the home page's **"What to play
-today"** interleaves each source's daily picks into one rail; favourites and
-playlists are sectioned by source while the queue mixes them freely; an expired
-sign-in shows a banner asking you to scan again.
-
-**How it works.** Each source is a plugin
-([protocol](docs/sources/PROTOCOL.md) — MusicFree-compatible, with `n1ko`
-extensions such as QR sign-in) running in a scripts-only sandbox: it cannot
-touch the page or open its own connections, and every request goes through the
-host, which enforces the manifest's host allow-list on every redirect hop. The
-two stock plugins ship inside the installer and are ready on first launch.
-
-**The boundary, stated plainly.** These endpoints are community
-reverse-engineering work, not official APIs — a platform change can break them;
-we will follow along, but availability is not guaranteed. Credentials are
-encrypted with the same AES-GCM key as your server passwords and never leave the
-device. Streaming sources are offered in the desktop and mobile apps only (the
-browser build has no usable network channel for this).
+| 什么 | 去了哪 |
+|---|---|
+| 你的音乐 | 你自己的服务器，以及你登录过的音源。没有别处。 |
+| 服务器密码、音源登录凭据 | 用设备上取不出来的密钥加密，只存在本机。 |
+| 收听历史、统计、口味画像 | 这台设备，以及你自己配置的同步服务（如果有）。 |
+| 歌词 / 封面补全 | 服务器没有时，把歌名和歌手发给歌词接口（默认 lrc.cx，设置里可以改）。 |
+| 检查更新 | 读本仓库 GitHub Releases 上的最新版本号。 |
+| 埋点、统计、崩溃上报 | 没有。 |
 
 <br/>
 
-## Download
+## ✦ 从源码构建
 
-Grab the installer for your platform from
-**[Releases](https://github.com/baogutang/N1KO-MUSIC/releases/latest)**:
-
-| Platform | Package |
-|------|--------|
-| macOS (Apple Silicon) | `N1KO.MUSIC_x.x.x_aarch64.dmg` |
-| macOS (Intel) | `N1KO.MUSIC_x.x.x_x64.dmg` |
-| Windows | `N1KO.MUSIC_x.x.x_x64-setup.exe` / `.msi` |
-| Linux | `.AppImage` / `.deb` |
-| iPhone / iPad | `N1KO.MUSIC_x.x.x_ios_unsigned.ipa` (unsigned, sideload it — see below) |
-| Android | `N1KO.MUSIC_x.x.x_android.apk` (allow installs from unknown sources) |
-
-**iPhone and iPad.** Apple doesn't let an unsigned app install directly, so you
-sign it with your own Apple ID while installing:
-
-1. Download the `.ipa` above and install it with [Sideloadly](https://sideloadly.io)
-   (Mac or Windows, over a cable) or [AltStore](https://altstore.io) / SideStore.
-2. On the device, turn on **Settings → Privacy & Security → Developer Mode**
-   and restart when asked.
-3. A free Apple ID signature lasts 7 days, then the app won't open until it's
-   re-signed (AltStore / SideStore can refresh it over Wi-Fi). A free account
-   can keep three sideloaded apps at a time.
-
-**Android.** Installs directly. From 1.16.1 on, every version is signed with the
-same key, so a new version installs over the old one. If you installed an earlier
-APK (debug-signed with a different key each time), uninstall it once first. The
-signing certificate's SHA-256 is
-`2A:D8:4F:85:D9:DD:85:02:95:6D:3A:EE:84:FA:6F:ED:77:0A:F6:09:3C:18:21:CB:1C:E6:4B:9B:77:2A:C2:2C`.
-
-> Release-signed mobile builds (Play keystore / Apple Developer) are not set up
-> yet — the workflow slots them in without structural changes. On macOS, if you
-> see "cannot verify the developer" on first launch, allow the app under
-> System Settings → Privacy & Security. If macOS says the app is **"damaged and
-> can't be opened"**, run this once and open it again:
->
-> ```bash
-> xattr -cr "/Applications/N1KO MUSIC.app"
-> ```
->
-> (Builds are ad-hoc signed; a notarized Developer ID build is on the roadmap.)
-
-<br/>
-
-## Development
-
-```bash
-git clone https://github.com/baogutang/N1KO-MUSIC.git
-cd N1KO-MUSIC/frontend
-npm install
-npm run dev          # web dev mode
-npm run tauri:dev    # desktop dev mode
-```
-
-You do not need your own server to develop against: point the app at
-`https://demo.navidrome.org` with username and password `demo`.
-
-The same React frontend also runs inside a Capacitor shell with native
-background playback and lock-screen controls:
+需要 Node.js 20 以上、JDK 21、Android SDK。
 
 ```bash
 cd frontend
-npm run cap:sync            # build web assets + sync native projects
-npx cap open android        # requires Android Studio / SDK
-npx cap open ios            # requires Xcode + CocoaPods
-```
-
-<details>
-<summary><b>How it fits together</b> — architecture diagram</summary>
-
-<br/>
-
-```mermaid
-flowchart LR
-    subgraph shells["One React codebase, three shells"]
-        direction TB
-        D["🖥 Tauri 2<br/><sub>macOS · Windows · Linux</sub>"]
-        M["📱 Capacitor 8<br/><sub>Android · iOS</sub>"]
-        W["🌐 PWA<br/><sub>any browser</sub>"]
-    end
-
-    subgraph app["N1KO MUSIC"]
-        direction TB
-        UI["Stage light UI<br/><sub>React · Zustand · TanStack Query</sub>"]
-        AD["Adapter layer<br/><sub>capability detection</sub>"]
-        LO["Local data<br/><sub>IndexedDB · history · notes · cache</sub>"]
-    end
-
-    subgraph yours["Your machines only"]
-        direction TB
-        S["🎵 Music server<br/><sub>Navidrome · Subsonic<br/>Jellyfin · Emby</sub>"]
-        B["🔄 Sync service<br/><sub>optional · SQLite</sub>"]
-    end
-
-    shells --> app
-    AD -->|"audio + metadata"| S
-    LO <-->|"history · notes"| B
-    LO -->|"favourites (push only)"| B
-
-    LB["ListenBrainz<br/><sub>opt-in</sub>"]
-    MB["MusicBrainz<br/><sub>opt-in, off by default</sub>"]
-    P["🎧 Plugin sources<br/><sub>NetEase / QQ Music APIs</sub>"]
-    LO -.->|"scrobbles"| LB
-    AD -.->|"artist id only"| MB
-    AD -.->|"search · playlists · streams<br/><sub>allow-listed hosts</sub>"| P
-```
-
-Everything inside **Your machines only** is yours. The dotted lines are the
-paths that can leave your network: ListenBrainz and MusicBrainz are opt-in
-(MusicBrainz off until you turn it on), and plugin sources only appear when you
-sign in to NetEase / QQ Music — the sandbox can only reach the hosts on each
-plugin's manifest allow-list.
-
-</details>
-
-<details>
-<summary><b>Optional sync service</b> — cross-device history and notes, pushed favourites</summary>
-
-<br/>
-
-`backend/` exposes account, playlist, favourite, listening-history and
-marginalia APIs. It is **entirely optional**: music always streams straight from
-your own music server, and with no sync service configured the app keeps its
-full feature set, storing everything locally in IndexedDB.
-
-Once deployed, open **Settings › Sync across devices (SYNC)**, enter the address
-and sign in. The client then syncs your listening history both ways, pushes
-favourite changes to the service (restoring favourites on a new device relies on
-the music server itself), and merges your marginalia notes across devices — so
-recommendations do not restart on a new machine.
-
-```bash
-cd backend
 npm ci
-npm test
-JWT_SECRET="replace-with-a-long-random-value" DATA_DIR=./data npm start
+npm run build:mobile
+npx cap sync android
+cd android && ./gradlew assembleRelease
 ```
 
-Docker deployments must mount `/app/data`; otherwise recreating the container
-loses both the database and the generated JWT secret:
-
-```bash
-docker build -t n1ko-music-backend backend
-docker run -d --name n1ko-music-backend \
-  -p 3001:3001 \
-  -v n1ko-music-data:/app/data \
-  -e JWT_SECRET="replace-with-a-long-random-value" \
-  n1ko-music-backend
-```
-
-Supported environment variables: `PORT`, `DATA_DIR`, `JWT_SECRET`,
-comma-separated `FRONTEND_URLS`, `TRUST_PROXY_HOPS`, `RATE_LIMIT_MAX`,
-`AUTH_RATE_LIMIT_MAX`, `ALLOW_REGISTRATION`, `LOGIN_ATTEMPT_MAX`,
-`LOGIN_ATTEMPT_WINDOW_MS`.
-
-> **Running behind a reverse proxy (Nginx / Caddy / traefik)?** You must set
-> `TRUST_PROXY_HOPS` (usually `1`). Without it, rate limiting and login lockout
-> key on the proxy's address — every user shares one bucket.
-
-A consistent backup is taken in the data directory before any migration runs,
-and a test asserts that a database upgraded from an old release converges —
-column for column, index for index, constraint for constraint — with one
-created fresh today.
-
-> **Registration policy (changed in v1.7.0)**: `ALLOW_REGISTRATION` defaults to
-> `first-user` — open until the first account exists, then closed automatically.
-> **Existing deployments adding a household member should set it to `open`
-> temporarily**, or `closed` to lock it down entirely.
->
-> **JWT secret**: leave `JWT_SECRET` unset and the service generates a 48-byte
-> random key and persists it with mode 0600. If you do set it, it must be at
-> least 32 characters or the service refuses to start.
-
-</details>
-
-<details>
-<summary><b>Web client via Docker</b> — if you would rather not install an app</summary>
+改代码前后跑一遍 `npm test` 和 `npm run lint`。界面的设计约定（颜色 token、组件、动效）见 [`DESIGN.md`](DESIGN.md)。
 
 <br/>
 
-```bash
-docker build -t n1ko-music-web frontend
-docker run -d --name n1ko-music-web -p 8080:80 \
-  -e DEFAULT_SERVER_URL=https://music.example.com \
-  -e DEFAULT_SERVER_TYPE=navidrome \
-  n1ko-music-web
-```
+## ✦ 致谢
 
-</details>
+X-MUSIC 基于 **[baogutang/N1KO-MUSIC](https://github.com/baogutang/N1KO-MUSIC)**（MIT）开发：界面设计、插件协议和绝大部分功能都来自上游，这里专注把它在安卓手机、平板、电视、车机上做好。
+吉祥物「糯米」和「毛豆」是上游作者的原创角色，形象版权归原作者所有，不随 MIT 许可授权。
 
-<br/>
+也感谢 [Navidrome](https://www.navidrome.org/)、[StreamMusic](https://github.com/gitbobobo/StreamMusic)、[MusicBrainz](https://musicbrainz.org/)、[Capacitor](https://capacitorjs.com/) 这些项目。
 
-## Tech stack
+## ✦ 许可
 
-| Layer | Technology |
-|------|-----|
-| Frontend | React 18 · TypeScript · Vite 5 · Tailwind CSS |
-| UI | Radix UI · Phosphor Icons · self-hosted fonts (Schibsted Grotesk / Young Serif) |
-| State and data | Zustand · TanStack Query v5 |
-| Audio engine | Native HTML5 Audio |
-| Streaming sources | Sandboxed plugins (MusicFree-compatible protocol + `n1ko` extensions); the host proxies network access through an allow-list |
-| Desktop shell | Tauri 2 (Rust) |
-| Mobile shell | Capacitor 8 (Android · iOS) |
-| Optional sync service | Node.js 24 · Express · SQLite |
-| i18n | Flat JSON catalogues, no runtime dependency ([contribute a language](TRANSLATING.md)) |
-
-<br/>
-
-## Privacy, stated plainly
-
-| What | Where it goes |
-|---|---|
-| Your music | Your music server (NAS) or the plugin sources you signed in to — nowhere else. |
-| Listening history, statistics, taste profile | This device (IndexedDB), plus your own sync service if you run one. |
-| Marginalia | Same. It is the only irreplaceable data here, so it syncs first. |
-| Server credentials | Encrypted at rest with an AES-GCM key that page script cannot extract. |
-| NetEase / QQ Music sign-in credentials | Same. Device-only; plugins run sandboxed and can only reach the hosts on their manifest allow-list. |
-| Exports | Generated in the browser. Never uploaded. |
-| ListenBrainz scrobbles | Only if you enter a token. Off by default. |
-| MusicBrainz artist dossiers | Only the artist's MusicBrainz id, only if you switch it on. Off by default. |
-| Telemetry, analytics, crash reporting | None. There is no server to send it to. |
-
-<br/>
-
-## Contributing
-
-Pull requests welcome. Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** first —
-especially the design-contract section. This project has a deliberate visual
-stance (one accent colour: lime for fills, leaf green for text; no card stacking;
-Phosphor icons only), and colours always come from the tokens in
-`frontend/src/index.css`; see [`DESIGN.md`](DESIGN.md) for how to use them.
-
-Translating needs no React knowledge at all — see **[TRANSLATING.md](TRANSLATING.md)**.
-
-<br/>
-
-## Acknowledgements
-
-N1KO MUSIC stands on the shoulders of these excellent projects:
-
-- [StreamMusic](https://github.com/gitbobobo/StreamMusic) — a beautifully designed Flutter NAS music player whose UI and UX inspired this project
-- [Navidrome](https://www.navidrome.org/) — the outstanding open-source Subsonic server
-- [MusicBrainz](https://musicbrainz.org/) · [ListenBrainz](https://listenbrainz.org/) — open music data, no strings attached
-- [Radix UI](https://www.radix-ui.com/) · [TanStack Query](https://tanstack.com/query) · [Zustand](https://github.com/pmndrs/zustand)
-
-<br/>
-
-## Star history
-
-<a href="https://star-history.com/#baogutang/N1KO-MUSIC&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=baogutang/N1KO-MUSIC&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=baogutang/N1KO-MUSIC&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=baogutang/N1KO-MUSIC&type=Date" />
- </picture>
-</a>
-
-<br/>
-<br/>
-
-<div align="center">
-
-<sub>N1KO MUSIC &nbsp;·&nbsp; Built by [N1KO](https://github.com/baogutang) &nbsp;·&nbsp; also check out **[N1KO-API](https://token.baogutang.top)**</sub>
-
-If N1KO MUSIC is useful to you, a ⭐ means the world.
-
-</div>
+[MIT](LICENSE)
