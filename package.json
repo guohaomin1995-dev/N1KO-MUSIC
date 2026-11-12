@@ -2,7 +2,7 @@
   "name": "n1ko-music",
   "productName": "X-MUSIC",
   "private": true,
-  "version": "1.18.5",
+  "version": "1.18.6",
   "description": "X-MUSIC - The best NAS music player",
   "author": "N1KO",
   "scripts": {
