@@ -5,6 +5,7 @@
  *            上滑打开正在播放
  *   regular  一条：封面 / 上一首 播放 下一首 / 收藏 歌词 队列
  *   wide     完整：封面曲名收藏 / 随机 上一首 播放 下一首 循环 + 进度行 / 歌词 定时 队列 音量 全屏
+ *            条本身不够宽时（开着侧栏的平板横屏）按条宽收拢，见 BAR_DENSE_COLS 那一组
  *
  * 封面带 data-np-anchor：全屏播放器打开时从它的位置飞出来、收起时飞回它这里（共享元素）。
  * 性能：细粒度 selector 订阅 store；进度行与进度线拆成独立 memo 子组件，
@@ -49,6 +50,26 @@ const iconBtnBase =
   'hover:bg-ink/[0.06] hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
 /** 开关类（随机、循环、队列）按下时是叶绿；收藏不算「当前」，按下只是墨色 */
 const iconBtn = `${iconBtnBase} aria-pressed:text-leaf`
+
+/*
+ * 宽档按播放条自己的宽度收拢（容器查询：条外面包一层 inline-size 容器；
+ * 条宽 = 窗口减侧栏，同样 1069 宽的平板，侧栏开着只有 ~780，收起来 ~1050）。
+ * 原样的三列要 ~1120 才摆得下：中间列先长到 460，右边一排图标 288 宽、列却只分到一份 fr，
+ * 溢出来压住进度行，曲名列被挤到只剩一个字。
+ *
+ *   ≥ 1120  原样，宽桌面不变
+ *   < 1120  中间列随条宽在 224–460 之间缩（50cqi − 160px），右列只占图标本身的宽，曲名拿剩下的；
+ *           全屏键收起（点封面、点曲名、点歌词都打开同一个全屏播放器）
+ *   < 940   音量滑杆收起，只留静音键（音量在全屏播放器里调，键盘 ⌘↑↓ 也行）
+ *
+ * Tailwind 只认源码里完整写出来的类名，所以变体前缀不拼接，原样写全。
+ */
+/** 收拢后的三列：曲名 / 播放控制 / 右侧图标 */
+const BAR_DENSE_COLS = '[@container(max-width:1119px)]:grid-cols-[minmax(0,1fr)_clamp(224px,calc(50cqi_-_160px),460px)_auto]'
+/** 条宽 < 1120 时收起 */
+const BAR_DENSE_HIDE = '[@container(max-width:1119px)]:hidden'
+/** 条宽 < 940 时收起 */
+const BAR_TIGHT_HIDE = '[@container(max-width:939px)]:hidden'
 
 /**
  * 进度行（宽窗口）：时间码 + 可拖动的进度轨。
@@ -533,97 +554,102 @@ export function PlayerBar({ wc }: { wc: WindowClass }) {
     )
   }
 
-  /* ===== 宽：完整 ===== */
+  /* ===== 宽：完整（条窄时收拢，见 BAR_DENSE_COLS） ===== */
   return (
-    <div
-      ref={barRef}
-      data-np-bar=""
-      className="glass pointer-events-auto grid h-[86px] grid-cols-[minmax(0,1.2fr)_minmax(300px,460px)_minmax(0,1fr)] items-center gap-5 rounded-[26px] px-3"
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        <button onClick={toggleFullscreen} className="press-pop flex-none" aria-label={t('player.openNowPlaying')}>
-          {cover('h-[54px] w-[54px]')}
-        </button>
-        <button onClick={toggleFullscreen} className="min-w-0" aria-label={t('player.openNowPlaying')}>
-          {titles(true)}
-        </button>
-        {favorite}
-      </div>
+    <div className="[container-type:inline-size]">
+      <div
+        ref={barRef}
+        data-np-bar=""
+        className={cn(
+          'glass pointer-events-auto grid h-[86px] grid-cols-[minmax(0,1.2fr)_minmax(300px,460px)_minmax(0,1fr)] items-center gap-5 rounded-[26px] px-3',
+          BAR_DENSE_COLS
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <button onClick={toggleFullscreen} className="press-pop flex-none" aria-label={t('player.openNowPlaying')}>
+            {cover('h-[54px] w-[54px]')}
+          </button>
+          <button onClick={toggleFullscreen} className="min-w-0" aria-label={t('player.openNowPlaying')}>
+            {titles(true)}
+          </button>
+          {favorite}
+        </div>
 
-      <div className="flex flex-col items-center gap-1 pb-0.5">
-        <div className="flex items-center">
+        <div className="flex flex-col items-center gap-1 pb-0.5">
+          <div className="flex items-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={toggleShuffle} className={iconBtn} aria-label={t('player.shuffle')} aria-pressed={shuffle}>
+                  <Shuffle size={17} weight={shuffle ? 'bold' : 'regular'} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{t(shuffle ? 'player.shuffleOff' : 'player.shuffle')}</TooltipContent>
+            </Tooltip>
+            <button onClick={handlePrev} className={iconBtn} aria-label={t('player.previous')}>
+              <SkipBack size={20} weight="fill" />
+            </button>
+            {playKey('md')}
+            <button onClick={handleNext} className={iconBtn} aria-label={t('player.next')}>
+              <SkipForward size={20} weight="fill" />
+            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={cycleRepeatMode} className={iconBtn} aria-label={repeatLabel} aria-pressed={repeatMode !== 'none'}>
+                  {repeatMode === 'one' ? <RepeatOnce size={17} weight="bold" /> : <Repeat size={17} weight={repeatMode === 'all' ? 'bold' : 'regular'} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{repeatLabel}</TooltipContent>
+            </Tooltip>
+          </div>
+          <ProgressRow />
+        </div>
+
+        <div className="flex items-center justify-end gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={toggleShuffle} className={iconBtn} aria-label={t('player.shuffle')} aria-pressed={shuffle}>
-                <Shuffle size={17} weight={shuffle ? 'bold' : 'regular'} />
+              <button onClick={() => setFullscreen(true)} className={iconBtn} aria-label={t('player.lyrics')}>
+                <MicrophoneStage size={18} />
               </button>
             </TooltipTrigger>
-            <TooltipContent>{t(shuffle ? 'player.shuffleOff' : 'player.shuffle')}</TooltipContent>
+            <TooltipContent>{t('player.lyrics')}</TooltipContent>
           </Tooltip>
-          <button onClick={handlePrev} className={iconBtn} aria-label={t('player.previous')}>
-            <SkipBack size={20} weight="fill" />
-          </button>
-          {playKey('md')}
-          <button onClick={handleNext} className={iconBtn} aria-label={t('player.next')}>
-            <SkipForward size={20} weight="fill" />
-          </button>
+          <SleepTimerMenu className={iconBtn} />
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={cycleRepeatMode} className={iconBtn} aria-label={repeatLabel} aria-pressed={repeatMode !== 'none'}>
-                {repeatMode === 'one' ? <RepeatOnce size={17} weight="bold" /> : <Repeat size={17} weight={repeatMode === 'all' ? 'bold' : 'regular'} />}
+              <button
+                onClick={() => setQueueOpen(!isQueueOpen)}
+                className={iconBtn}
+                aria-label={t('player.queue')}
+                aria-pressed={isQueueOpen}
+              >
+                <Queue size={18} />
               </button>
             </TooltipTrigger>
-            <TooltipContent>{repeatLabel}</TooltipContent>
+            <TooltipContent>{t('player.queue')}</TooltipContent>
+          </Tooltip>
+          <div className="mx-1 flex w-28 items-center gap-1 [@container(max-width:939px)]:mx-0 [@container(max-width:939px)]:w-auto">
+            <button onClick={toggleMute} className={iconBtn} aria-label={t('player.mute')} aria-pressed={muted}>
+              <VolumeIcon size={17} />
+            </button>
+            <Slider
+              value={[muted ? 0 : volume]}
+              max={1}
+              step={0.05}
+              onValueChange={handleVolumeChange}
+              className={cn('flex-1', BAR_TIGHT_HIDE)}
+              aria-label={t('player.volume')}
+              aria-valuetext={`${Math.round((muted ? 0 : volume) * 100)}%`}
+            />
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button onClick={toggleFullscreen} className={cn(iconBtn, BAR_DENSE_HIDE)} aria-label={t('player.fullscreen')}>
+                <ArrowsOutSimple size={17} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t('player.fullscreen')}</TooltipContent>
           </Tooltip>
         </div>
-        <ProgressRow />
-      </div>
-
-      <div className="flex items-center justify-end gap-0.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button onClick={() => setFullscreen(true)} className={iconBtn} aria-label={t('player.lyrics')}>
-              <MicrophoneStage size={18} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{t('player.lyrics')}</TooltipContent>
-        </Tooltip>
-        <SleepTimerMenu className={iconBtn} />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => setQueueOpen(!isQueueOpen)}
-              className={iconBtn}
-              aria-label={t('player.queue')}
-              aria-pressed={isQueueOpen}
-            >
-              <Queue size={18} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{t('player.queue')}</TooltipContent>
-        </Tooltip>
-        <div className="mx-1 flex w-28 items-center gap-1">
-          <button onClick={toggleMute} className={iconBtn} aria-label={t('player.mute')} aria-pressed={muted}>
-            <VolumeIcon size={17} />
-          </button>
-          <Slider
-            value={[muted ? 0 : volume]}
-            max={1}
-            step={0.05}
-            onValueChange={handleVolumeChange}
-            className="flex-1"
-            aria-label={t('player.volume')}
-            aria-valuetext={`${Math.round((muted ? 0 : volume) * 100)}%`}
-          />
-        </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button onClick={toggleFullscreen} className={iconBtn} aria-label={t('player.fullscreen')}>
-              <ArrowsOutSimple size={17} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{t('player.fullscreen')}</TooltipContent>
-        </Tooltip>
       </div>
     </div>
   )
