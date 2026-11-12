@@ -13,6 +13,7 @@
 import { useNavigate } from 'react-router-dom'
 import { X } from '@phosphor-icons/react'
 import { usePlayerStore } from '@/store/playerStore'
+import { isPodcastEpisode } from '@/store/podcastProgressStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useLyricsQuery } from '@/hooks/useServerQueries'
 import { useCurrentSongFavorite } from '@/hooks/useFavoriteState'
@@ -46,7 +47,8 @@ export function NowPlayingPanel() {
     currentSong?.album,
     currentSong?.path,
     currentSong?.duration,
-    !!currentSong,
+    // 播客节目没有歌词（远程歌词接口按标题只会配上不相干的歌）
+    !!currentSong && !isPodcastEpisode(currentSong),
     currentSong?.serverId
   )
 

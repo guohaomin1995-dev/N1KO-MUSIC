@@ -35,6 +35,7 @@ import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { useT } from '@/i18n'
 import { usePlayerStore, type RepeatMode } from '@/store/playerStore'
+import { isPodcastEpisode } from '@/store/podcastProgressStore'
 import { useWindowClass, needsTrafficLightInset, isNativePlatform } from '@/lib/platform'
 import { haptic } from '@/lib/haptics'
 import { EASE_OUT, SPRING_MORPH, SPRING_PRESS, SPRING_SMOOTH, SPRING_SNAPPY, prefersReducedMotion } from '@/lib/motion'
@@ -371,7 +372,8 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
     currentSong?.album,
     currentSong?.path,
     currentSong?.duration,
-    !!currentSong,
+    // 播客节目没有歌词：按标题去远程歌词接口匹配，只会配上一首不相干的歌
+    !!currentSong && !isPodcastEpisode(currentSong),
     currentSong?.serverId  // 歌词要向这首歌自己的音源要，不能问主库
   )
   const lyrics = lyricsQuery.data
