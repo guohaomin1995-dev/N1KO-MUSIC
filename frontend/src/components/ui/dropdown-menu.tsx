@@ -2,6 +2,7 @@ import * as React from 'react'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { CaretRight, Check, Circle } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { restoreFocusOnlyForKeyboard } from '@/lib/inputModality'
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
@@ -47,11 +48,13 @@ DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayNam
 const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
+>(({ className, sideOffset = 4, onCloseAutoFocus, ...props }, ref) => (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
+      // 点按收起时不把焦点还给「⋯」按钮，免得按钮上留一圈焦点环（见 inputModality）
+      onCloseAutoFocus={restoreFocusOnlyForKeyboard(onCloseAutoFocus)}
       className={cn(
         'glass z-overlay min-w-[13rem] origin-[var(--radix-dropdown-menu-content-transform-origin)] overflow-hidden rounded-[18px] p-1.5 text-ink data-[state=open]:animate-menu-in data-[state=closed]:animate-menu-out',
         className

@@ -2,6 +2,7 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { restoreFocusOnlyForKeyboard } from '@/lib/inputModality'
 import { t } from '@/i18n'
 
 /**
@@ -35,11 +36,13 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onCloseAutoFocus, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay>
       <DialogPrimitive.Content
         ref={ref}
+        // 点按关掉时不把焦点还给打开它的按钮，免得按钮上留一圈焦点环（见 inputModality）
+        onCloseAutoFocus={restoreFocusOnlyForKeyboard(onCloseAutoFocus)}
         className={cn(
           'relative z-modal grid w-full max-w-lg gap-4 bg-surface p-6 text-ink shadow-lg',
           'rounded-t-xl pb-[calc(24px+env(safe-area-inset-bottom))] regular:rounded-xl regular:pb-6',

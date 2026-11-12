@@ -17,6 +17,7 @@ import { usePlayerStore } from '@/store/playerStore'
 import { useCoverUrl } from '@/hooks/useCoverUrl'
 import { markCoverLoaded } from '@/components/common/CoverImage'
 import { useT } from '@/i18n'
+import { restoreFocusOnlyForKeyboard } from '@/lib/inputModality'
 
 /**
  * 全屏播放器的代码：有歌在放时趁空闲先拉下来。第一次点开就不用等下载，
@@ -135,6 +136,8 @@ export function FullscreenPlayerOverlay() {
             e.preventDefault()
             contentRef.current?.focus({ preventScroll: true })
           }}
+          /* 点按 / 下滑收起时不把焦点还给播放条上的封面，免得那里留一圈焦点环（见 inputModality） */
+          onCloseAutoFocus={restoreFocusOnlyForKeyboard()}
         >
           <DialogPrimitive.Title className="sr-only">{t('player.nowPlaying')}</DialogPrimitive.Title>
           {Direct ? (
