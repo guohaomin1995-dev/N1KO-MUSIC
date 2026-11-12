@@ -32,7 +32,7 @@ function caps(partial: Partial<Record<string, boolean>>): Record<string, SourceC
       search: true, album: true, artist: true, lyrics: true,
       userPlaylists: true, favorites: true, playlistWrite: !!playlistWrite,
       topLists: false, recommendSheets: false, recommendSongs: false,
-      importSheet: false, libraryBrowse: true, radio: false,
+      importSheet: false, libraryBrowse: true, radio: false, podcasts: false,
     }
   }
   return map

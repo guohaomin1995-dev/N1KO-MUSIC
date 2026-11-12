@@ -207,6 +207,36 @@ export interface SheetItem {
   [k: string]: unknown
 }
 
+/** 播客（网易云的电台）。节目是 MusicItem，带私有字段 podcast（PodcastEpisodeRaw）*/
+export interface PodcastItem {
+  platform: string
+  id: string
+  title: string
+  artwork?: string
+  description?: string
+  author?: string
+  category?: string
+  /** 节目数 */
+  episodes?: number
+  /** 订阅人数 */
+  subscribers?: number
+  /** 只有详情给得出；列表里缺省 = 不知道 */
+  subscribed?: boolean
+  /** 最近一期的发布时间（毫秒时间戳） */
+  lastEpisodeAt?: number
+  paid?: boolean
+  [k: string]: unknown
+}
+
+/** 节目条目（MusicItem）上的 podcast 私有字段 */
+export interface PodcastEpisodeRaw {
+  id?: string
+  title?: string
+  publishedAt?: number
+  description?: string
+  episode?: number
+}
+
 export interface Paged<T> {
   isEnd: boolean
   data: T[]
@@ -290,6 +320,15 @@ export interface PluginExports {
       createPlaylist?(name: string): Promise<SheetItem>
       addToPlaylist?(sheetItem: SheetItem, musicItems: MusicItem[]): Promise<void>
       removeFromPlaylist?(sheetItem: SheetItem, musicItems: MusicItem[]): Promise<void>
+    }
+    /** 播客（capability podcasts）。page 从 1 开始 */
+    podcast?: {
+      getSubscribed?(page: number): Promise<Paged<PodcastItem>>
+      getRecommended?(): Promise<Paged<PodcastItem>>
+      search?(query: string, page: number): Promise<Paged<PodcastItem>>
+      getDetail?(podcast: PodcastItem): Promise<PodcastItem>
+      getEpisodes?(podcast: PodcastItem, page: number, order: 'newest' | 'oldest'): Promise<Paged<MusicItem> & { total?: number }>
+      setSubscribed?(podcast: PodcastItem, subscribed: boolean): Promise<void>
     }
     getMediaSource?(musicItem: MusicItem, quality: 'low' | 'standard' | 'high' | 'super'): Promise<PluginMediaSource>
   }

@@ -255,6 +255,8 @@ describe('写操作单独退避', () => {
     expect(isWriteMethod('n1ko.user.addToPlaylist')).toBe(true)
     expect(isWriteMethod('n1ko.user.removeFromPlaylist')).toBe(true)
     expect(isWriteMethod('n1ko.user.createPlaylist')).toBe(true)
+    expect(isWriteMethod('n1ko.podcast.setSubscribed')).toBe(true)
+    expect(isWriteMethod('n1ko.podcast.getSubscribed')).toBe(false)
     expect(isWriteMethod('n1ko.user.getPlaylists')).toBe(false)
     expect(isWriteMethod('getMusicSheetInfo')).toBe(false)
     expect(isWriteMethod('search')).toBe(false)

@@ -6,16 +6,16 @@
  * 按 { platform, id } 最小项回传，让插件自己兜底。
  */
 
-import type { Album, Artist, Playlist, Song } from '@/api/types'
+import type { Album, Artist, Playlist, Podcast, PodcastEpisodeInfo, Song } from '@/api/types'
 import { safeResourceUrl } from './host/whitelist'
-import type { AlbumItem, ArtistItem, MusicItem, SheetItem } from './types'
+import type { AlbumItem, ArtistItem, MusicItem, PodcastEpisodeRaw, PodcastItem, SheetItem } from './types'
 import { upgradeInsecureUrl } from './httpsUpgrade'
 
 // ===================================================
 // 原始项缓存（LRU，key = serverId:kind:id）
 // ===================================================
 
-export type RawKind = 'song' | 'album' | 'artist' | 'sheet'
+export type RawKind = 'song' | 'album' | 'artist' | 'sheet' | 'podcast'
 
 const RAW_CACHE_MAX = 2000
 const rawCache = new Map<string, unknown>()
@@ -145,6 +145,59 @@ export function mapSheetItem(item: SheetItem, serverId: string, hosts: readonly 
   }
   putRawItem(serverId, 'sheet', playlist.id, item)
   return playlist
+}
+
+// ===================================================
+// 播客
+// ===================================================
+
+const text = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v : undefined)
+const positive = (v: unknown): number | undefined => {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+export function mapPodcastItem(item: PodcastItem, serverId: string, hosts: readonly string[]): Podcast {
+  const podcast: Podcast = {
+    id: String(item.id),
+    name: String(item.title ?? ''),
+    coverArt: safeArtwork(item.artwork, hosts),
+    description: text(item.description),
+    author: text(item.author),
+    category: text(item.category),
+    episodeCount: positive(item.episodes),
+    subscriberCount: positive(item.subscribers),
+    subscribed: typeof item.subscribed === 'boolean' ? item.subscribed : undefined,
+    lastEpisodeAt: positive(item.lastEpisodeAt),
+    paid: item.paid === true ? true : undefined,
+    serverId,
+  }
+  putRawItem(serverId, 'podcast', podcast.id, item)
+  return podcast
+}
+
+/**
+ * 一期节目：先按普通曲目映射（取流、歌词都按曲目走），再把插件私有字段 podcast
+ * 收进 ext.podcast。字段一个个挑出来、按类型收：这串东西会进播放队列和收听进度，
+ * 插件给什么就存什么的话，坏形状会一路带进持久化。
+ */
+export function mapPodcastEpisode(
+  item: MusicItem,
+  podcast: Pick<Podcast, 'id' | 'name'>,
+  serverId: string,
+  hosts: readonly string[]
+): Song {
+  const song = mapMusicItem(item, serverId, hosts)
+  const raw = (item.podcast && typeof item.podcast === 'object' ? item.podcast : {}) as PodcastEpisodeRaw
+  const info: PodcastEpisodeInfo = {
+    podcastId: text(raw.id) ?? podcast.id,
+    podcastName: text(raw.title) ?? podcast.name,
+    publishedAt: positive(raw.publishedAt),
+    description: text(raw.description),
+    episode: positive(raw.episode),
+  }
+  song.ext = { ...song.ext, podcast: info }
+  return song
 }
 
 // ===================================================

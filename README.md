@@ -221,7 +221,7 @@ there is no "unlocking" of any kind.
 
 | Source | Sign-in | What works |
 |------|------|------|
-| NetEase Cloud Music | QR scan from the phone app | Search, your playlists, favourites, daily picks, charts, lyrics, add to / remove from playlists |
+| NetEase Cloud Music | QR scan from the phone app | Search, your playlists, favourites, daily picks, charts, lyrics, add to / remove from playlists, podcasts |
 | QQ Music | QR scan from the QQ or WeChat app | Search, your playlists, favourites, radar picks, charts, lyrics |
 
 They sit **alongside** your NAS rather than replacing it: search is grouped by

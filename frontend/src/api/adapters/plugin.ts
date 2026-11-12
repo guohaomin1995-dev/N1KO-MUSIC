@@ -22,6 +22,7 @@ import type {
   PageResult,
   Playlist,
   PlaylistDetail,
+  Podcast,
   SearchResult,
   ServerType,
   Song,
@@ -34,6 +35,7 @@ import type {
   MusicItem,
   Paged,
   PluginManifest,
+  PodcastItem,
   SheetItem,
   TopListGroup,
 } from '@/plugins/types'
@@ -42,6 +44,8 @@ import {
   mapAlbumItem,
   mapArtistItem,
   mapMusicItem,
+  mapPodcastEpisode,
+  mapPodcastItem,
   mapQuality,
   mapSheetItem,
   minimalMusicItem,
@@ -83,6 +87,12 @@ export class PluginAdapter implements MusicServerAdapter {
   getRecommendSheets?: MusicServerAdapter['getRecommendSheets']
   getRecommendSongs?: MusicServerAdapter['getRecommendSongs']
   getSimilarSongs?: MusicServerAdapter['getSimilarSongs']
+  getSubscribedPodcasts?: MusicServerAdapter['getSubscribedPodcasts']
+  getRecommendedPodcasts?: MusicServerAdapter['getRecommendedPodcasts']
+  searchPodcasts?: MusicServerAdapter['searchPodcasts']
+  getPodcast?: MusicServerAdapter['getPodcast']
+  getPodcastEpisodes?: MusicServerAdapter['getPodcastEpisodes']
+  setPodcastSubscribed?: MusicServerAdapter['setPodcastSubscribed']
   searchSongsPage?: MusicServerAdapter['searchSongsPage']
   star?: MusicServerAdapter['star']
   unstar?: MusicServerAdapter['unstar']
@@ -416,6 +426,7 @@ export class PluginAdapter implements MusicServerAdapter {
       importSheet: has('importSheet'),
       libraryBrowse: false,
       radio: has('radio'),
+      podcasts: has('podcasts'),
     }
   }
 
@@ -434,6 +445,7 @@ export class PluginAdapter implements MusicServerAdapter {
       case 'recommendSongs': return this.host.hasMethod('n1ko.user.getRecommendSongs')
       case 'importSheet': return this.host.hasMethod('importMusicSheet')
       case 'radio': return this.host.hasMethod('n1ko.getSimilarSongs')
+      case 'podcasts': return this.host.hasMethod('n1ko.podcast.getEpisodes')
       default: return false
     }
   }
@@ -528,11 +540,69 @@ export class PluginAdapter implements MusicServerAdapter {
       }
     }
 
+    if (this.capability('podcasts') && this.host.hasMethod('n1ko.podcast.getEpisodes')) {
+      this.mountPodcastMethods()
+    }
+
     // 每日推荐（登录态）：n1ko.user.getRecommendSongs 返回整页 MusicItem[]
     if (this.capability('recommendSongs') && this.host.hasMethod('n1ko.user.getRecommendSongs')) {
       this.getRecommendSongs = async () => {
         const items = await this.host.call<MusicItem[]>('n1ko.user.getRecommendSongs')
         return (items ?? []).map(m => mapMusicItem(m, this.serverId, this.hosts))
+      }
+    }
+  }
+
+  /**
+   * 播客：n1ko.podcast.*。节目列表是这一组的核心（能力探测认它），其余方法有则挂。
+   * 播客条目回传时优先用缓存的原项（带着插件要的私有字段），未命中给最小项。
+   */
+  private mountPodcastMethods() {
+    const rawPodcast = (id: string): PodcastItem =>
+      getRawItem<PodcastItem>(this.serverId, 'podcast', id) ?? { platform: this.manifest.platform, id, title: '' }
+    const mapList = (items: unknown): Podcast[] =>
+      (Array.isArray(items) ? items : [])
+        .filter((p): p is PodcastItem => !!p && typeof p === 'object' && (p as PodcastItem).id !== undefined)
+        .map(p => mapPodcastItem(p, this.serverId, this.hosts))
+
+    this.getPodcastEpisodes = async (id, page, order) => {
+      const raw = rawPodcast(id)
+      const paged = await this.host.call<(Paged<MusicItem> & { total?: number }) | null>('n1ko.podcast.getEpisodes', raw, page, order)
+      const podcast = { id, name: String(raw.title ?? '') }
+      return {
+        isEnd: paged?.isEnd ?? true,
+        total: typeof paged?.total === 'number' ? paged.total : undefined,
+        episodes: (paged?.data ?? []).filter(isMusicItemShape).map(m => mapPodcastEpisode(m, podcast, this.serverId, this.hosts)),
+      }
+    }
+    if (this.host.hasMethod('n1ko.podcast.getSubscribed')) {
+      this.getSubscribedPodcasts = async (page) => {
+        const paged = await this.host.call<Paged<PodcastItem> | null>('n1ko.podcast.getSubscribed', page)
+        return { isEnd: paged?.isEnd ?? true, items: mapList(paged?.data) }
+      }
+    }
+    if (this.host.hasMethod('n1ko.podcast.getRecommended')) {
+      this.getRecommendedPodcasts = async () => {
+        const paged = await this.host.call<Paged<PodcastItem> | null>('n1ko.podcast.getRecommended')
+        return mapList(paged?.data)
+      }
+    }
+    if (this.host.hasMethod('n1ko.podcast.search')) {
+      this.searchPodcasts = async (query, page) => {
+        const paged = await this.host.call<Paged<PodcastItem> | null>('n1ko.podcast.search', query, page)
+        return { isEnd: paged?.isEnd ?? true, items: mapList(paged?.data) }
+      }
+    }
+    if (this.host.hasMethod('n1ko.podcast.getDetail')) {
+      this.getPodcast = async (id) => {
+        const item = await this.host.call<PodcastItem | null>('n1ko.podcast.getDetail', rawPodcast(id))
+        if (!item || item.id === undefined) throw new PluginCallError('not-found', 'podcast not found')
+        return mapPodcastItem(item, this.serverId, this.hosts)
+      }
+    }
+    if (this.host.hasMethod('n1ko.podcast.setSubscribed')) {
+      this.setPodcastSubscribed = async (id, subscribed) => {
+        await this.host.call('n1ko.podcast.setSubscribed', rawPodcast(id), subscribed)
       }
     }
   }

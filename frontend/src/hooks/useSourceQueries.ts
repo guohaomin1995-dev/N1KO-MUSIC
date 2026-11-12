@@ -94,7 +94,7 @@ function capabilitiesOf(serverId: string): SourceCapabilities {
       search: false, album: false, artist: false, lyrics: false,
       userPlaylists: false, favorites: false, playlistWrite: false,
       topLists: false, recommendSheets: false, recommendSongs: false,
-      importSheet: false, libraryBrowse: false, radio: false,
+      importSheet: false, libraryBrowse: false, radio: false, podcasts: false,
     }
   }
   return sourceCapabilitiesOf(a)

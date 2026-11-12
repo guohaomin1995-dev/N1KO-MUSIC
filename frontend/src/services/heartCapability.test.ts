@@ -4,8 +4,8 @@ import { sourceSupportsFavorites } from '@/services/heartCapability'
 import type { SourceCapabilities } from '@/api/types'
 
 const capsOf = (favorites: boolean): Record<string, SourceCapabilities> => ({
-  nas: { search: true, album: true, artist: true, lyrics: true, userPlaylists: true, favorites, playlistWrite: false, topLists: false, recommendSheets: false, recommendSongs: false, importSheet: false, libraryBrowse: true, radio: false },
-  wy: { search: true, album: true, artist: true, lyrics: true, userPlaylists: true, favorites: false, playlistWrite: true, topLists: true, recommendSheets: true, recommendSongs: true, importSheet: true, libraryBrowse: false, radio: false },
+  nas: { search: true, album: true, artist: true, lyrics: true, userPlaylists: true, favorites, playlistWrite: false, topLists: false, recommendSheets: false, recommendSongs: false, importSheet: false, libraryBrowse: true, radio: false, podcasts: false },
+  wy: { search: true, album: true, artist: true, lyrics: true, userPlaylists: true, favorites: false, playlistWrite: true, topLists: true, recommendSheets: true, recommendSongs: true, importSheet: true, libraryBrowse: false, radio: false, podcasts: false },
 })
 
 describe('sourceSupportsFavorites（B4）', () => {

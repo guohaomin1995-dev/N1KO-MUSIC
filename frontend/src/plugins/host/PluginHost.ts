@@ -125,7 +125,7 @@ export const RATE_LIMITED_BACKOFF_MS = 60_000
  * 现在写操作被拦只退避写操作；读操作被拦（整站限流）写操作也一起等。
  */
 export function isWriteMethod(method: string): boolean {
-  return /^n1ko\.user\.(set|add|remove|create|delete|update)/.test(method)
+  return /^n1ko\.(user\.(set|add|remove|create|delete|update)|podcast\.set)/.test(method)
 }
 
 const writeBackoffKey = (key: string) => `${key}#write`

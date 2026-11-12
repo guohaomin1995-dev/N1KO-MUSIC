@@ -1,7 +1,7 @@
 {
   "id": "netease",
   "name": "网易云音乐",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "protocol": 1,
   "platform": "netease",
   "entry": "index.js",
@@ -26,7 +26,8 @@
     "topLists",
     "recommendSheets",
     "recommendSongs",
-    "importSheet"
+    "importSheet",
+    "podcasts"
   ],
   "qualities": [
     "low",

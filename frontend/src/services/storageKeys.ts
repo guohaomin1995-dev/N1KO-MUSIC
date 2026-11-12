@@ -27,6 +27,8 @@ export const STORAGE_KEYS = {
   pluginDisclaimers: 'n1ko-plugin-disclaimers-confirmed',
   /** v6：封面取色结果（房间的光），完全可重建 */
   artLight: 'msp-art-light',
+  /** 播客节目的收听进度（只在本机） */
+  podcastProgress: 'msp-podcast-progress',
 } as const
 
 /**

@@ -21,7 +21,7 @@ function caps(write: Partial<Record<string, boolean>>): Record<string, SourceCap
       search: true, album: true, artist: true, lyrics: true,
       userPlaylists: true, favorites: true, playlistWrite: !!playlistWrite,
       topLists: false, recommendSheets: false, recommendSongs: false,
-      importSheet: false, libraryBrowse: true, radio: false,
+      importSheet: false, libraryBrowse: true, radio: false, podcasts: false,
     }
   }
   return map

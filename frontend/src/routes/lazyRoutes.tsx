@@ -24,6 +24,8 @@ const loaders = {
   songDetail: () => import('../pages/SongDetail'),
   topLists: () => import('../pages/TopLists'),
   topListDetail: () => import('../pages/TopListDetail'),
+  podcasts: () => import('../pages/Podcasts'),
+  podcastDetail: () => import('../pages/PodcastDetail'),
   fullscreenPlayer: () => import('../components/player/FullscreenPlayer'),
 }
 
@@ -48,6 +50,8 @@ export const RecommendationsPage = lazy(loaders.recommendations)
 export const SongDetailPage = lazy(loaders.songDetail)
 export const TopListDetailPage = lazy(loaders.topListDetail)
 export const TopListsPage = lazy(loaders.topLists)
+export const PodcastsPage = lazy(loaders.podcasts)
+export const PodcastDetailPage = lazy(loaders.podcastDetail)
 
 const prefetched = new Set<string>()
 function prefetchOnce(key: string, loader: Loader) {
@@ -80,6 +84,8 @@ const routeMatchers: Array<{ test: (path: string) => boolean; key: string; loade
   { test: p => /^\/songs\/[^/]+$/.test(p), key: 'route:song-detail', loader: loaders.songDetail },
   { test: p => p === '/toplists', key: 'route:toplists', loader: loaders.topLists },
   { test: p => /^\/toplists\/[^/]+\/[^/]+$/.test(p), key: 'route:toplist-detail', loader: loaders.topListDetail },
+  { test: p => p === '/podcasts', key: 'route:podcasts', loader: loaders.podcasts },
+  { test: p => /^\/podcasts\/[^/]+\/[^/]+$/.test(p), key: 'route:podcast-detail', loader: loaders.podcastDetail },
 ]
 
 export function prefetchRoute(path: string) {

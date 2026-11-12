@@ -38,6 +38,7 @@ import { useSleepTimer } from '@/hooks/useSleepTimer'
 import { useQueueSync } from '@/hooks/useQueueSync'
 import { useRadioRefill } from '@/hooks/useRadioRefill'
 import { useLongTrackBookmark } from '@/hooks/useLongTrackBookmark'
+import { usePodcastProgress } from '@/hooks/usePodcastProgress'
 import { useDirectScrobble } from '@/hooks/useDirectScrobble'
 import { useAudioInterruptions } from '@/hooks/useAudioInterruptions'
 import { useDeepLinks } from '@/hooks/useDeepLinks'
@@ -70,6 +71,7 @@ export default function MainLayout() {
   useQueueSync()
   useRadioRefill()
   useLongTrackBookmark()
+  usePodcastProgress()
   useDirectScrobble()
   useAudioInterruptions()
   useDeepLinks()

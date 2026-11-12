@@ -164,7 +164,44 @@ export interface SongExtras {
   bookmarkPosition?: number
   /** 插件音源：当前账号无权播放（会员曲），界面据此标 VIP */
   vip?: boolean
+  /** 这首「歌」其实是一期播客节目：属于哪个播客、什么时候发的（收听进度按它记） */
+  podcast?: PodcastEpisodeInfo
 }
+
+/** 一期播客节目的节目信息（挂在 Song.ext.podcast 上） */
+export interface PodcastEpisodeInfo {
+  /** 所属播客 id */
+  podcastId: string
+  podcastName: string
+  /** 发布时间（毫秒时间戳） */
+  publishedAt?: number
+  /** 节目简介（纯文本） */
+  description?: string
+  /** 第几期 */
+  episode?: number
+}
+
+/** 播客（网易云的电台）*/
+export interface Podcast {
+  id: string
+  name: string
+  coverArt?: string
+  description?: string
+  /** 主播 */
+  author?: string
+  category?: string
+  episodeCount?: number
+  subscriberCount?: number
+  /** 只有详情给得出；列表里缺省 = 不知道 */
+  subscribed?: boolean
+  /** 最近一期的发布时间（毫秒时间戳） */
+  lastEpisodeAt?: number
+  /** 付费播客 */
+  paid?: boolean
+  serverId: string
+}
+
+export type PodcastEpisodeOrder = 'newest' | 'oldest'
 
 /** 专辑 */
 export interface Album {
@@ -511,6 +548,23 @@ export interface MusicServerAdapter {
   getRecommendSheets?(page: number): Promise<{ isEnd: boolean; items: Playlist[] }>
   /** 登录态每日推荐曲目（插件音源；网易云每日 / QQ 雷达），聚合「今日推荐」用 */
   getRecommendSongs?(): Promise<Song[]>
+
+  /*
+   * 播客（插件音源声明 podcasts 才有）。节目就是 Song，带 ext.podcast；
+   * 播放、取流和普通歌曲走同一条链路。
+   */
+  /** 我订阅的播客（要登录），分页，第一页 page = 1 */
+  getSubscribedPodcasts?(page: number): Promise<{ isEnd: boolean; items: Podcast[] }>
+  /** 推荐播客，一次给完 */
+  getRecommendedPodcasts?(): Promise<Podcast[]>
+  /** 搜索播客，分页，第一页 page = 1 */
+  searchPodcasts?(query: string, page: number): Promise<{ isEnd: boolean; items: Podcast[] }>
+  /** 播客详情（含「我订没订」）*/
+  getPodcast?(id: string): Promise<Podcast>
+  /** 节目列表，分页，第一页 page = 1 */
+  getPodcastEpisodes?(id: string, page: number, order: PodcastEpisodeOrder): Promise<{ isEnd: boolean; total?: number; episodes: Song[] }>
+  /** 订阅 / 取消订阅（要登录）*/
+  setPodcastSubscribed?(id: string, subscribed: boolean): Promise<void>
 }
 
 /**
@@ -544,6 +598,8 @@ export interface SourceCapabilities {
   libraryBrowse: boolean
   /** 可作为电台 / 推荐的候选来源 */
   radio: boolean
+  /** 有播客（订阅、节目列表）*/
+  podcasts: boolean
 }
 
 /** 服务器声明的能力，用于在 UI 上隐藏不受支持的入口 */

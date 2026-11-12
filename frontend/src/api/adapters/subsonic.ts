@@ -1120,6 +1120,7 @@ export class SubsonicAdapter implements MusicServerAdapter {
       importSheet: false,
       libraryBrowse: true,
       radio: true,
+      podcasts: false,
     }
   }
 }

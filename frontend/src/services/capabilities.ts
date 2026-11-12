@@ -26,6 +26,7 @@ export function capabilitiesOfAdapter(a: MusicServerAdapter): ClientCapabilities
     libraryBrowse: declared?.libraryBrowse ?? true,
     radio: declared?.radio
       ?? (typeof a.getSimilarSongs === 'function' || typeof a.getArtistSongs === 'function'),
+    podcasts: declared?.podcasts ?? typeof a.getPodcastEpisodes === 'function',
     shares: typeof a.createShare === 'function',
     rating: typeof a.setRating === 'function',
     bookmarks: typeof a.createBookmark === 'function',
@@ -45,6 +46,7 @@ export function sourceCapabilitiesOf(a: MusicServerAdapter): SourceCapabilities 
     playlistWrite: caps.playlistWrite, topLists: caps.topLists,
     recommendSheets: caps.recommendSheets, recommendSongs: caps.recommendSongs,
     importSheet: caps.importSheet, libraryBrowse: caps.libraryBrowse, radio: caps.radio,
+    podcasts: caps.podcasts,
   }
 }
 
@@ -59,6 +61,6 @@ export function rowCapsOf(
     search: false, album: false, artist: false, lyrics: false,
     userPlaylists: false, favorites: false, playlistWrite: false,
     topLists: false, recommendSheets: false, recommendSongs: false,
-    importSheet: false, libraryBrowse: false, radio: false,
+    importSheet: false, libraryBrowse: false, radio: false, podcasts: false,
   }
 }

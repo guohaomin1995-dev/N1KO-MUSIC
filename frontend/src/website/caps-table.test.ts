@@ -21,6 +21,7 @@ const README_CAP_TO_MANIFEST: Record<string, string> = {
   榜单: 'topLists', charts: 'topLists',
   歌词: 'lyrics', lyrics: 'lyrics',
   '加入 / 移出歌单': 'playlistWrite', 'add to / remove from playlists': 'playlistWrite',
+  播客: 'podcasts', podcasts: 'podcasts',
 }
 
 function manifestCaps(id: string): string[] {

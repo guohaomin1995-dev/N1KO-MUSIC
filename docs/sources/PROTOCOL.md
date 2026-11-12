@@ -36,7 +36,7 @@
   "capabilities": [
     "search", "album", "artist", "lyrics",
     "userPlaylists", "favorites", "playlistWrite",
-    "topLists", "recommendSheets", "recommendSongs", "importSheet"
+    "topLists", "recommendSheets", "recommendSongs", "importSheet", "podcasts"
   ],
   "qualities": ["low", "medium", "high", "lossless"],
   "userVariables": [
@@ -111,6 +111,19 @@ module.exports = {
       async addToPlaylist(sheetItem, musicItems) {},
       async removeFromPlaylist(sheetItem, musicItems) {},
       async getRecommendSongs() {},                  // -> MusicItem[]（登录态每日推荐；未登录抛 unauthorized）
+    },
+    // 播客（capability `podcasts`；getEpisodes 必须实现，其余有则用）。page 从 1 开始。
+    // 播客条目 PodcastItem：{ platform, id, title, artwork?, description?, author?, category?,
+    //   episodes?, subscribers?, subscribed?（只有详情给得出，列表里不给）, lastEpisodeAt?, paid? }
+    // 节目就是 MusicItem（取流、歌词照常走），多一个私有字段
+    //   podcast: { id, title, publishedAt?, description?, episode? }，宿主据此显示并记收听进度。
+    podcast: {
+      async getEpisodes(podcastItem, page, order) {}, // order: 'newest' | 'oldest' -> { isEnd, data: MusicItem[], total? }
+      async getSubscribed(page) {},                   // -> { isEnd, data: PodcastItem[] }（要登录）
+      async getRecommended() {},                      // -> { isEnd, data: PodcastItem[] }
+      async search(query, page) {},                   // -> { isEnd, data: PodcastItem[] }
+      async getDetail(podcastItem) {},                // -> PodcastItem（带 subscribed）
+      async setSubscribed(podcastItem, subscribed) {},// 要登录；宿主按写操作单独记退避
     },
     async getMediaSource(musicItem, quality) {},     // 有则优先于顶层同名方法；-> { url, expiresAt?, headers?, mimeType? }
     async getSimilarSongs(musicItem, count) {},      // -> MusicItem[]（电台种子的相似曲；声明 capability `radio` 时必须实现）
@@ -232,6 +245,7 @@ interface MediaSource {
 | `libraryBrowse` | 流媒体音源一般不声明；未声明时该音源不出现在专辑、歌手、流派浏览页 |
 | `recommendSongs` | 首页「今天听什么」与推荐页不合并该音源的每日推荐 |
 | `radio` | 曲目行与歌曲页的「以此开电台」不出现；电台种子来自哪个音源就只在那个音源里找相似（不回落主库） |
+| `podcasts` | 播客页不列该音源（订阅、推荐、搜索、节目列表都没有）；节目的收听进度只存在本机 |
 
 ## 7. 错误码
 

@@ -138,6 +138,7 @@ export class WebDavAdapter implements MusicServerAdapter {
       importSheet: false,
       libraryBrowse: true,
       radio: false,
+      podcasts: false,
     }
   }
 

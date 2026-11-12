@@ -27,6 +27,8 @@ import {
   SongDetailPage,
   TopListDetailPage,
   TopListsPage,
+  PodcastsPage,
+  PodcastDetailPage,
 } from './routes/lazyRoutes'
 
 function RouteLoading() {
@@ -117,6 +119,8 @@ export default function App() {
                     <Route path="songs/:id" element={<SongDetailPage />} />
                     <Route path="toplists" element={<TopListsPage />} />
                     <Route path="toplists/:serverId/:topListId" element={<TopListDetailPage />} />
+                    <Route path="podcasts" element={<PodcastsPage />} />
+                    <Route path="podcasts/:serverId/:podcastId" element={<PodcastDetailPage />} />
                     <Route path="songs/detail" element={<Navigate to="/library" replace />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

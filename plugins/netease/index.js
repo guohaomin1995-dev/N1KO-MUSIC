@@ -690,6 +690,116 @@ async function fetchFavoriteSongs(env, deviceId) {
   return songs
 }
 
+/* ============================================================
+ * 播客 / 电台（djradio）
+ *
+ * 网易云的「播客」就是电台（djradio），一期节目（program）背后挂着一首 mainSong：
+ * 取流、歌词都按这首歌的 id 走，和普通歌曲一模一样，所以节目直接映射成 MusicItem，
+ * 播放链路不用另起一套。节目自己的信息（属于哪个电台、发布时间、简介、第几期）
+ * 放在私有字段 podcast 里，宿主据此显示和记住收听进度。
+ * ============================================================ */
+
+/** 订阅 / 搜索列表每页电台数 */
+var PODCAST_LIST_SIZE = 30
+/** 节目列表每页条数 */
+var EPISODE_PAGE_SIZE = 50
+
+function mapRadio(raw) {
+  if (!raw || !raw.id) return null
+  var dj = raw.dj || {}
+  return {
+    platform: 'netease',
+    id: String(raw.id),
+    title: raw.name || '',
+    artwork: raw.picUrl || raw.intervenePicUrl || '',
+    description: raw.desc || raw.rcmdText || raw.rcmdtext || raw.copywriter || '',
+    author: dj.nickname || '',
+    category: raw.category || '',
+    episodes: Number(raw.programCount) || 0,
+    subscribers: Number(raw.subCount) || 0,
+    /* 只有详情接口给得出「我订没订」；列表里不给就是不知道，不能当成没订 */
+    subscribed: typeof raw.subed === 'boolean' ? raw.subed : undefined,
+    lastEpisodeAt: Number(raw.lastProgramCreateTime) || undefined,
+    lastEpisodeTitle: raw.lastProgramName || undefined,
+    /* radioFeeType：0 免费，1 / 2 付费电台 */
+    paid: Number(raw.radioFeeType) > 0,
+  }
+}
+
+function mapProgram(raw, radioFallback) {
+  var song = raw.mainSong || {}
+  var radio = raw.radio || radioFallback || {}
+  var dj = raw.dj || radio.dj || {}
+  var id = song.id || raw.mainTrackId
+  if (!id) return null
+  return {
+    platform: 'netease',
+    id: String(id),
+    title: raw.name || song.name || '',
+    artist: dj.nickname || radio.name || '',
+    /* 专辑 / 歌手不给 id：电台不是专辑，点过去只会打开一个空专辑页 */
+    album: radio.name || '',
+    artwork: raw.coverUrl || radio.picUrl || '',
+    duration: Math.round((raw.duration || song.duration || 0) / 1000),
+    /* programFeeType：0 免费，5 付费电台里的免费试听期，10 起是付费节目；买过的照常能听 */
+    vip: !raw.buyed && Number(raw.programFeeType) >= 10,
+    podcast: {
+      id: String(radio.id || raw.radioId || ''),
+      title: radio.name || '',
+      programId: String(raw.id || ''),
+      publishedAt: Number(raw.scheduledPublishTime || raw.createTime) || undefined,
+      description: typeof raw.description === 'string' ? raw.description : '',
+      episode: Number(raw.serialNum) || undefined,
+    },
+  }
+}
+
+/** 电台接口不是 200 就别当空列表交出去：406 是「操作太频繁」，其余按未知错误报 */
+function assertRadioOk(body, what) {
+  var code = body && body.code
+  if (code === undefined || code === 200) return body
+  if (code === 406) throw pluginError('rate-limited', '网易云说操作太频繁，过一会儿再试')
+  throw pluginError('unknown', what + '失败（code ' + code + '）')
+}
+
+async function fetchSubscribedRadios(page) {
+  requireLogin()
+  var deviceId = await ensureDeviceId(env)
+  var offset = ((page || 1) - 1) * PODCAST_LIST_SIZE
+  var res = await eapiRequest(env, '/api/djradio/get/subed', {
+    limit: PODCAST_LIST_SIZE,
+    offset: offset,
+    total: true,
+  }, deviceId)
+  assertRadioOk(res.body, '读取订阅的播客')
+  var data = (res.body.djRadios || []).map(mapRadio).filter(Boolean)
+  data.forEach(function (r) { r.subscribed = true })
+  var isEnd = typeof res.body.hasMore === 'boolean'
+    ? !res.body.hasMore
+    : isEndByTotal(offset, data.length, PODCAST_LIST_SIZE, res.body.count)
+  return { data: data, isEnd: isEnd }
+}
+
+async function fetchRadioEpisodes(radio, page, order) {
+  var deviceId = await ensureDeviceId(env)
+  var offset = ((page || 1) - 1) * EPISODE_PAGE_SIZE
+  var res = await eapiRequest(env, '/api/dj/program/byradio', {
+    radioId: String(radio.id),
+    limit: EPISODE_PAGE_SIZE,
+    offset: offset,
+    /* asc=false 最新的在前（播客的默认看法），true 从第一期开始 */
+    asc: order === 'oldest',
+  }, deviceId)
+  assertRadioOk(res.body, '读取节目列表')
+  var radioInfo = { id: radio.id, name: radio.title || radio.name }
+  var data = (res.body.programs || []).map(function (p) { return mapProgram(p, radioInfo) }).filter(Boolean)
+  var total = Number(res.body.count) || undefined
+  var isEnd = typeof res.body.more === 'boolean'
+    ? !res.body.more
+    : isEndByTotal(offset, data.length, EPISODE_PAGE_SIZE, total)
+  return { data: data, isEnd: isEnd, total: total }
+}
+
 /* 音质档位映射（协议四档 → 网易云 level） */
 var QUALITY_LEVEL = { low: 'standard', medium: 'higher', high: 'exhigh', lossless: 'lossless' }
 
@@ -1098,6 +1208,64 @@ module.exports = {
         }
         await setFavoriteViaPlaylist(musicItem.id, !!liked, deviceId)
         favoritesCache.loaded = false
+      },
+    },
+    /*
+     * 播客（电台）。订阅列表与订阅开关要登录，其余匿名也能用。
+     * 电台条目形如 { platform, id, title, artwork, description, author, category,
+     * episodes, subscribers, subscribed?, lastEpisodeAt?, paid }；节目是 MusicItem，
+     * 多一个私有字段 podcast（见 mapProgram）。
+     */
+    podcast: {
+      getSubscribed(page) { return fetchSubscribedRadios(page) },
+
+      /** 为你推荐（登录后按口味推荐，匿名时是通用推荐），一次给完 */
+      async getRecommended() {
+        var deviceId = await ensureDeviceId(env)
+        var res = await eapiRequest(env, '/api/djradio/recommend/v1', {}, deviceId)
+        assertRadioOk(res.body, '读取推荐播客')
+        var data = (res.body.djRadios || []).map(mapRadio).filter(Boolean)
+        if (!data.length) {
+          /* 推荐偶尔回空：退到热门电台，页面不至于空着 */
+          var hot = await eapiRequest(env, '/api/djradio/hot/v1', { limit: PODCAST_LIST_SIZE, offset: 0 }, deviceId)
+          data = (hot.body.djRadios || []).map(mapRadio).filter(Boolean)
+        }
+        return { data: data, isEnd: true }
+      },
+
+      async search(query, page) {
+        var deviceId = await ensureDeviceId(env)
+        var offset = ((page || 1) - 1) * PODCAST_LIST_SIZE
+        var res = await eapiRequest(env, '/api/cloudsearch/pc', {
+          s: String(query || ''),
+          type: 1009,
+          limit: PODCAST_LIST_SIZE,
+          offset: offset,
+          total: true,
+        }, deviceId)
+        assertRadioOk(res.body, '搜索播客')
+        var result = res.body.result || {}
+        var data = (result.djRadios || []).map(mapRadio).filter(Boolean)
+        return { data: data, isEnd: isEndByTotal(offset, data.length, PODCAST_LIST_SIZE, result.djRadiosCount) }
+      },
+
+      async getDetail(radio) {
+        var deviceId = await ensureDeviceId(env)
+        var res = await eapiRequest(env, '/api/djradio/v2/get', { id: String(radio.id) }, deviceId)
+        assertRadioOk(res.body, '读取播客详情')
+        var detail = mapRadio(res.body.data)
+        if (!detail) throw pluginError('not-found', '这个播客不存在或已下架')
+        return detail
+      },
+
+      getEpisodes(radio, page, order) { return fetchRadioEpisodes(radio, page, order) },
+
+      async setSubscribed(radio, subscribed) {
+        requireLogin()
+        var deviceId = await ensureDeviceId(env)
+        var res = await eapiRequest(env, '/api/djradio/' + (subscribed ? 'sub' : 'unsub'), { id: String(radio.id) }, deviceId)
+        var code = res.body && res.body.code
+        if (code !== 200) throw pluginError('unknown', (subscribed ? '订阅' : '取消订阅') + '失败（code ' + code + '）')
       },
     },
     getMediaSource(item, quality) { return module.exports.getMediaSource(item, quality) },

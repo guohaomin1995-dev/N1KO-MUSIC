@@ -40,7 +40,7 @@ const NONE: ClientCapabilities = {
   search: false, album: false, artist: false, lyrics: false,
   userPlaylists: false, favorites: false, playlistWrite: false,
   topLists: false, recommendSheets: false, recommendSongs: false,
-  importSheet: false, libraryBrowse: false, radio: false,
+  importSheet: false, libraryBrowse: false, radio: false, podcasts: false,
   shares: false, rating: false, bookmarks: false, nowPlaying: false,
   musicFolders: false, scan: false, playQueue: false,
 }

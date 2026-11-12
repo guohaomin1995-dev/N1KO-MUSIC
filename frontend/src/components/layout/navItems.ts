@@ -7,7 +7,7 @@
 import type { Icon } from '@phosphor-icons/react'
 import {
   House, Sparkle, Books, MagnifyingGlass, Newspaper, MusicNotes, VinylRecord,
-  UsersThree, Playlist, Heart, ClockCounterClockwise, ChartBar,
+  UsersThree, Playlist, Heart, ClockCounterClockwise, ChartBar, Microphone,
 } from '@phosphor-icons/react'
 
 export interface NavItem {
@@ -33,6 +33,7 @@ export const SIDEBAR_DISCOVER: NavItem[] = [
   { to: '/', labelKey: 'nav.home', icon: House, match: p => p === '/' },
   { to: '/recommendations', labelKey: 'nav.recommendations', icon: Sparkle },
   { to: '/issue', labelKey: 'nav.issue', icon: Newspaper },
+  { to: '/podcasts', labelKey: 'nav.podcasts', icon: Microphone },
   { to: '/search', labelKey: 'nav.search', icon: MagnifyingGlass },
 ]
 
@@ -50,6 +51,7 @@ export const SIDEBAR_LIBRARY: NavItem[] = [
 /** 中、窄两档放不进导航的入口：工具栏「更多」菜单 */
 export const MORE_NAV: NavItem[] = [
   { to: '/issue', labelKey: 'nav.issue', icon: Newspaper },
+  { to: '/podcasts', labelKey: 'nav.podcasts', icon: Microphone },
   { to: '/favorites', labelKey: 'nav.favorites', icon: Heart },
   { to: '/history', labelKey: 'nav.history', icon: ClockCounterClockwise },
   { to: '/stats', labelKey: 'nav.stats', icon: ChartBar },

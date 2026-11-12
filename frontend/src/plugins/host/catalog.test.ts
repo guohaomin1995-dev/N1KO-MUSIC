@@ -57,7 +57,7 @@ describe('validateManifest · capabilities 只认协议里的名字', () => {
   it('协议 §6 的全部名字都放行（含 radio / recommendSongs / libraryBrowse）', () => {
     const caps = [
       'search', 'album', 'artist', 'lyrics', 'userPlaylists', 'favorites', 'playlistWrite',
-      'topLists', 'recommendSheets', 'recommendSongs', 'importSheet', 'libraryBrowse', 'radio',
+      'topLists', 'recommendSheets', 'recommendSongs', 'importSheet', 'libraryBrowse', 'radio', 'podcasts',
     ]
     expect(validateManifest({ ...base, capabilities: caps }).capabilities).toEqual(caps)
   })

@@ -42,6 +42,7 @@ import { clearPauseReason, notePauseReason, readPauseContext, recordPause } from
 import { t } from '@/i18n'
 import { isNativeFlacUrl } from '@/api/adapters/webdavNative'
 import { createEngineAudio } from '@/audio/hybridAudio'
+import { podcastResumeSeconds } from '@/store/podcastProgressStore'
 import {
   createListeningEventId,
   deriveListeningOutcome,
@@ -608,14 +609,24 @@ export function useAudioEngine() {
     const song = currentSongRef.current
     if (!song || !playbackIdentity) return
     if (bookmarkAppliedRef.current.has(playbackIdentity)) return
-    const position = song.ext?.bookmarkPosition
-    if (!position || (song.duration ?? 0) < 20 * 60) return
-    // 距离结尾太近就不必续了
-    if (song.duration - position / 1000 < 30) return
+    /*
+     * 播客节目：位置记在本机（podcastProgressStore），不论长短都续；
+     * 「已听完」和「快听完」的那里已经返回 null，从头放。
+     */
+    const podcastAt = podcastResumeSeconds(song)
+    let seconds: number
+    if (podcastAt !== null) {
+      seconds = podcastAt
+    } else {
+      const position = song.ext?.bookmarkPosition
+      if (!position || (song.duration ?? 0) < 20 * 60) return
+      // 距离结尾太近就不必续了
+      if (song.duration - position / 1000 < 30) return
+      seconds = position / 1000
+    }
     bookmarkAppliedRef.current.add(playbackIdentity)
 
     let attempts = 0
-    const seconds = position / 1000
     /**
      * 重试链里每一次 setTimeout 都要记下来。
      *
@@ -873,9 +884,14 @@ export function useAudioEngine() {
         const code = pluginErrorCode(e)
         /* toast 的说明句走 describeError 的词条（复核 F13）：detail 只喂给
          * classifyStreamFailure 做文本嗅探，插件作者的原始英文串不进 UI */
-        const userDetail = describeError(e)
         const failureClass = classifyStreamFailure(code, detail)
         const denied = failureClass === 'denied'
+        /*
+         * 播客节目放不了基本只有一个原因：付费节目没买。降音质、去别的音源搜「同名歌」
+         * 都不会有结果，只是白发请求、拖慢跳到下一期；说明句也换成节目的说法。
+         */
+        const isEpisode = !!capturedSong.ext?.podcast
+        const userDetail = denied && isEpisode ? t('podcast.paidEpisodeDenied') : describeError(e)
         // 音质切换途中失败不算跳歌场景：保持停在原处的原语义
         if (qualitySwitchResumeAt !== null) {
           // 把 isPlaying 收回来：元素还握着旧流，但加载目标已经失败，
@@ -904,7 +920,7 @@ export function useAudioEngine() {
          * NAS 的转码链路按 maxBitrate 自适应，denied 另有原因。
          * 降档成功就以降档音质重走加载（doLoad 递归），只说一句话。
          */
-        if (failureClass === 'denied' && !qualityOverride) {
+        if (failureClass === 'denied' && !qualityOverride && !isEpisode) {
           const failingServer = songServerId(capturedSong)
           const failingAdapter = hasAdapterFor(failingServer) ? getAdapterFor(failingServer) : null
           if (failingAdapter?.resolveStreamUrl) {
@@ -924,7 +940,7 @@ export function useAudioEngine() {
         }
 
         const worthFallback = failureClass === 'denied' || failureClass === 'not-found'
-        if (worthFallback) {
+        if (worthFallback && !isEpisode) {
           const index = usePlayerStore.getState().queueIndex
           if (!fallbackChain || fallbackChain.index !== index) {
             fallbackChain = { index, tried: new Set<string>() }
