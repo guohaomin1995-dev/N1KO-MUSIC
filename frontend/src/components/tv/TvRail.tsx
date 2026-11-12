@@ -13,6 +13,8 @@ import { MagnifyingGlass, House, Sparkle, Books, Playlist, Heart, GearSix, Micro
 import { cn } from '@/lib/utils'
 import { prefetchRoute } from '@/routes/lazyRoutes'
 import { useT } from '@/i18n'
+import { useSettingsStore } from '@/store/settingsStore'
+import { graphemes, resolveAppName } from '@/lib/appName'
 import { RAIL_NAV, isNavActive, type NavItem } from '@/components/layout/navItems'
 
 const libraryItem = RAIL_NAV.find(item => item.to === '/library')
@@ -36,16 +38,27 @@ function activeItem(pathname: string): string | undefined {
   return TV_NAV.find(item => isNavActive(item, pathname))?.to
 }
 
+/**
+ * 导航条左上角的字标。收起时只有一列图标那么宽，短名字（默认的 X-MUSIC）整个放得下；
+ * 长名字在第一个空格 / 连字符处断开，后半截等导航条展开时再滑出来
+ */
+function splitLogo(name: string): [string, string] {
+  if (graphemes(name).length <= 8) return [name, '']
+  const cut = name.search(/[\s\-·]/)
+  return cut > 0 ? [name.slice(0, cut), name.slice(cut + 1).trim()] : [name, '']
+}
+
 export function TvRail() {
   const { t } = useT()
   const { pathname } = useLocation()
   const current = activeItem(pathname)
+  const [logoHead, logoTail] = splitLogo(resolveAppName(useSettingsStore(s => s.appName)))
 
   return (
     <nav aria-label={t('nav.main')} className="tv-rail" data-tv-rail="" data-nav-group="rail" data-nav-contain="y" data-nav-enter="x">
       <div className="tv-rail-dim" aria-hidden="true" />
       <div className="tv-rail-bg" aria-hidden="true" />
-      <div className="tv-rail-logo" aria-hidden="true">N1KO<span>MUSIC</span></div>
+      <div className="tv-rail-logo" aria-hidden="true">{logoHead}{logoTail && <span>{logoTail}</span>}</div>
       <div className="tv-rail-list">
         {TV_NAV.map(item => {
           const active = item.to === current
