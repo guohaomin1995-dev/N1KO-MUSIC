@@ -1,13 +1,14 @@
 /**
  * 安卓 App 的版本更新：查 GitHub 上本仓库的最新 Release，比当前版本新、而且挂着 .apk 附件，
- * 就提示用户去下载。下载交给系统浏览器（走系统代理 / VPN，比在 App 里下更稳），
- * 下完点开安装包覆盖安装。
+ * 就提示更新。安装包在 App 里下（原生 AppUpdaterPlugin，带进度、可取消，关掉弹窗也接着下），
+ * 下完直接拉起系统安装界面覆盖安装；下不动时还能改用浏览器下载。
  *
  * 只在安卓原生壳里做：iOS 不能侧载安装包，桌面版和网页版另有更新方式。
  * GitHub 在国内经常连不上，检查失败时要说清楚「打开代理再试」，而不是一句「检查失败」。
  */
-import { Capacitor, CapacitorHttp } from '@capacitor/core'
+import { Capacitor, CapacitorHttp, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
 import { create } from 'zustand'
+import { pluginErrorCode } from '@/services/errors'
 import pkg from '../../package.json'
 
 /** 发布安装包的仓库 */
@@ -96,11 +97,60 @@ function writeStorage(key: string, value: string) {
 
 export type UpdateCheckOutcome = 'available' | 'latest' | 'failed' | 'skipped'
 
+/* ---------------------------------------------------------------- 应用内下载与安装 */
+
+interface AppUpdaterPlugin {
+  download(options: { url: string; fileName: string; expectedSize?: number }): Promise<{ path: string; size: number }>
+  cancel(): Promise<void>
+  canInstall(): Promise<{ allowed: boolean }>
+  install(options: { path: string }): Promise<{ status: 'started' | 'needs-permission' }>
+  addListener(event: 'progress', listener: (e: { received: number; total: number }) => void): Promise<PluginListenerHandle>
+}
+
+const AppUpdater = registerPlugin<AppUpdaterPlugin>('AppUpdater')
+
+/**
+ * idle 还没下 · downloading 下载中 · ready 下好了（点安装拉起系统安装界面）·
+ * needs-permission 系统还没允许本 App 安装应用（设置页已打开，回来后自动再装）· error 出错
+ */
+export type DownloadPhase = 'idle' | 'downloading' | 'ready' | 'needs-permission' | 'error'
+
+export interface DownloadState {
+  phase: DownloadPhase
+  /** 下载的是哪个版本：换了版本就从头来 */
+  version?: string
+  received: number
+  total: number
+  path?: string
+  /** 原生层的错误码：NETWORK / HTTP_404 / SIZE_MISMATCH / BAD_PACKAGE / NOT_NEWER / NOT_FOUND … */
+  errorCode?: string
+}
+
+const IDLE: DownloadState = { phase: 'idle', received: 0, total: 0 }
+
+/** 安装包在缓存目录里的文件名（原生层只收 [A-Za-z0-9._-]+.apk） */
+export function apkFileName(version: string): string {
+  return `X-MUSIC-${version.replace(/[^A-Za-z0-9._-]/g, '')}.apk`
+}
+
+/** 原生层 reject 带的错误码（Capacitor 放在 error.code 上） */
+function errorCodeOf(e: unknown): string {
+  return pluginErrorCode(e) || 'UNKNOWN'
+}
+
 interface AppUpdateState {
   release: AppRelease | null
   /** 弹窗是否打开 */
   open: boolean
   checking: boolean
+  download: DownloadState
+  /** 在 App 里下载安装包；下完自动弹回来等安装 */
+  startDownload: () => Promise<void>
+  cancelDownload: () => Promise<void>
+  /** 拉起系统安装界面；还没被允许安装应用时会打开设置页，状态变成 needs-permission */
+  install: () => Promise<void>
+  /** 从设置页回来：已经允许了就接着装 */
+  resumeInstall: () => Promise<void>
   /** 检查一次。manual = 用户点的「检查更新」：不看间隔、也不管之前跳过的版本 */
   check: (manual?: boolean) => Promise<UpdateCheckOutcome>
   close: () => void
@@ -112,6 +162,57 @@ export const useAppUpdateStore = create<AppUpdateState>((set, get) => ({
   release: null,
   open: false,
   checking: false,
+  download: IDLE,
+  startDownload: async () => {
+    const release = get().release
+    if (!release || get().download.phase === 'downloading') return
+    set({ download: { ...IDLE, phase: 'downloading', version: release.version, total: release.apkSize ?? 0 } })
+    let handle: PluginListenerHandle | null = null
+    try {
+      handle = await AppUpdater.addListener('progress', e => {
+        const d = get().download
+        if (d.phase !== 'downloading' || d.version !== release.version) return
+        set({ download: { ...d, received: e.received, total: e.total > 0 ? e.total : d.total } })
+      })
+      const result = await AppUpdater.download({
+        url: release.apkUrl,
+        fileName: apkFileName(release.version),
+        expectedSize: release.apkSize,
+      })
+      // 关着弹窗在后台下的，下完弹回来让人点安装
+      set({ download: { phase: 'ready', version: release.version, received: result.size, total: result.size, path: result.path }, open: true })
+    } catch (e) {
+      const code = errorCodeOf(e)
+      if (code === 'CANCELLED') set({ download: IDLE })
+      else set(s => ({ download: { ...s.download, phase: 'error', errorCode: code }, open: true }))
+    } finally {
+      void handle?.remove()
+    }
+  },
+  cancelDownload: async () => {
+    if (get().download.phase !== 'downloading') return
+    try { await AppUpdater.cancel() } catch { /* 原生层已经结束了，download 那边会收尾 */ }
+  },
+  install: async () => {
+    const d = get().download
+    if (!d.path) return
+    try {
+      const { status } = await AppUpdater.install({ path: d.path })
+      set({ download: { ...d, phase: status === 'needs-permission' ? 'needs-permission' : 'ready' } })
+    } catch (e) {
+      const code = errorCodeOf(e)
+      // 缓存被系统清掉了：回到「还没下」，重新下一次就好
+      if (code === 'NOT_FOUND') set({ download: IDLE })
+      else set({ download: { ...d, phase: 'error', errorCode: code } })
+    }
+  },
+  resumeInstall: async () => {
+    if (get().download.phase !== 'needs-permission') return
+    try {
+      const { allowed } = await AppUpdater.canInstall()
+      if (allowed) await get().install()
+    } catch { /* 留在 needs-permission，界面上还有「继续安装」 */ }
+  },
   check: async (manual = false) => {
     if (!updateSupported() || get().checking) return 'skipped'
     if (!manual) {
@@ -127,7 +228,10 @@ export const useAppUpdateStore = create<AppUpdateState>((set, get) => ({
         return 'latest'
       }
       if (!manual && readStorage(SKIPPED_KEY) === release.version) return 'skipped'
-      set({ release, open: true })
+      // 又出了更新的版本：之前下好的旧安装包作废（正在下的不打断）
+      const d = get().download
+      const stale = d.phase !== 'idle' && d.phase !== 'downloading' && d.version !== release.version
+      set({ release, open: true, ...(stale ? { download: IDLE } : {}) })
       return 'available'
     } catch {
       return 'failed'

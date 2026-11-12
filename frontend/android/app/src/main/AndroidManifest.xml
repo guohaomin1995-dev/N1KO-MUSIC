@@ -45,4 +45,7 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 应用内更新：下载好的新版安装包交给系统安装器（AppUpdaterPlugin）。
+         只是「可以请求安装」，每次安装系统都会弹确认界面 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>
