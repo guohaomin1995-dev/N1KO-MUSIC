@@ -1496,8 +1496,9 @@ html[data-tv] ::-webkit-scrollbar {
 }
 
 /* 兜底：任何拿到焦点的东西至少有一圈墨色环（开关、滑块、输入框都走这一条）。
-   :where 压低特异性：下面封面卡、歌曲行、播放键各自的样式要盖得过它 */
-html[data-tv] :where(a[href], button, input, select, textarea, [tabindex]:not([tabindex='-1'])):focus:not([data-tv-focus]) {
+   :where 压低特异性：下面封面卡、歌曲行、播放键各自的样式要盖得过它。
+   那几样再在 :not() 里直接排除一遍：老内核（WebView 83）上这条会被展开成普通选择器，特异性变高就盖不过它们了 */
+html[data-tv] :where(a[href], button, input, select, textarea, [tabindex]:not([tabindex='-1'])):focus:not([data-tv-focus], [data-tv-card], .song-row, .play-key, [class~='bg-lime']) {
   outline: 3px solid oklch(var(--ink));
   outline-offset: 3px;
 }

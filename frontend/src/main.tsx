@@ -19,11 +19,14 @@ import {
 import { syncNotes } from './services/notes'
 import { useSyncStore } from './store/syncStore'
 import { installWindowDrag } from '@/lib/windowDrag'
+import { installLegacyLayout } from '@/lib/legacyLayout'
 import { installOklchFallback } from '@/lib/oklchFallback'
 import { tvDeviceKnownNow, whenTvDeviceKnown } from '@/lib/tv'
 
 // 旧内核（车机、电视盒子常见）不认识 oklch()：跟着封面变的那些颜色在这里算成 rgb；新内核上什么都不做
 installOklchFallback()
+// 同上，电视盒子（WebView 83）不认 flex 的 gap 和 aspect-ratio：运行时补外边距、按宽算高
+installLegacyLayout()
 
 // 清掉旧版每 30 秒新增一条、从不回收的推荐缓存键：已被撑满配额的用户
 // 加载一次即可自愈。（persist 适配器本身也会在写入失败时回收，此处是提前腾空间。）

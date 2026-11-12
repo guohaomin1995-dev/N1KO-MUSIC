@@ -498,6 +498,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    // 默认目标是 chrome87；电视盒子的系统 WebView 是 83（不能单独升级），语法降到 83。
+    // CSS 也按这个目标让 esbuild 补前缀、拆 inset；它管不了的写法见 postcss/legacy-css.mjs
+    target: ['es2020', 'chrome83', 'edge88', 'firefox78', 'safari14'],
     rollupOptions: {
       output: {
         manualChunks(id) {

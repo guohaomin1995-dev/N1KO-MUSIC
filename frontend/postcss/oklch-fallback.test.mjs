@@ -9,6 +9,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import oklchFallback, { oklchToRgb255, SUPPORTS_PARAMS } from './oklch-fallback.mjs'
 import config from '../postcss.config.js'
+import { LEGACY_SUPPORTS } from './legacy-css.mjs'
 import { oklchToRgb } from '../src/lib/oklch'
 
 const run = async css => (await postcss([oklchFallback()]).process(css, { from: undefined })).root
@@ -100,8 +101,12 @@ describe('oklch 兜底插件', () => {
       if (decl.prop.startsWith('--')) defined.add(decl.prop)
       for (const m of decl.value.matchAll(/var\((--[\w-]+-rgb)\)/g)) referenced.add(m[1])
       if (!decl.value.includes('oklch(') || inFallback(decl)) return
+      // 老内核选择器兜底里的副本：它的 rgb 版在原规则的 rgb 版后面（legacy-css 同样处理过那份）
+      if (decl.parent.parent?.type === 'atrule' && decl.parent.parent.params === LEGACY_SUPPORTS) return
       const owner = decl.parent.parent?.type === 'atrule' && /keyframes$/.test(decl.parent.parent.name) ? decl.parent.parent : decl.parent
-      const next = owner.next()
+      // 老内核选择器兜底（legacy-css）也紧跟在原规则后面，跳过它再找
+      let next = owner.next()
+      while (next?.type === 'atrule' && next.params === LEGACY_SUPPORTS) next = next.next()
       expect(next?.type === 'atrule' && next.params === SUPPORTS_PARAMS, `${decl.parent.selector} { ${decl.prop} } 后面没有 rgb 版`).toBe(true)
       checked++
     })
