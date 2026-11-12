@@ -3,7 +3,7 @@
  *
  *   compact  胶囊：封面 + 曲名 + 播放键 + 下一首；左右滑切歌（曲名跟着手指走，松手按方向翻过去），
  *            上滑打开正在播放
- *   regular  一条：封面 / 上一首 播放 下一首 / 收藏 歌词 队列
+ *   regular  一条：封面曲名（占满剩余宽度） / 上一首 播放 下一首 / 收藏 歌词 队列
  *   wide     完整：封面曲名收藏 / 随机 上一首 播放 下一首 循环 + 进度行 / 歌词 定时 队列 音量 全屏
  *            条本身不够宽时（开着侧栏的平板横屏）按条宽收拢，见 BAR_DENSE_COLS 那一组
  *
@@ -514,10 +514,14 @@ export function PlayerBar({ wc }: { wc: WindowClass }) {
     )
   }
 
-  /* ===== 中：一条 ===== */
+  /* ===== 中：一条 =====
+   * 右列只占三枚图标本身的宽，剩下的都给曲名。早先左右两列等分（为了播放键居中），
+   * 右边三枚图标只用得了一半，曲名列却在 600 宽（分屏）时连 VIP 角标带曲名只剩 ~30px，
+   * 一首「小行迹」只露出「小…」。播放键因此靠右、挨着右侧图标，进度线照旧横贯整条。
+   */
   if (wc === 'regular') {
     return (
-      <div data-np-bar="" className="glass pointer-events-auto relative grid h-[70px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 rounded-[24px] px-3">
+      <div data-np-bar="" className="glass pointer-events-auto relative grid h-[70px] grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded-[24px] px-3">
         <button
           onClick={toggleFullscreen}
           className="flex min-w-0 items-center gap-3"
