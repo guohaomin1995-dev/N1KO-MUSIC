@@ -29,6 +29,10 @@ export const STORAGE_KEYS = {
   artLight: 'msp-art-light',
   /** 播客节目的收听进度（只在本机） */
   podcastProgress: 'msp-podcast-progress',
+  /** 原生壳报的「这台是电视」（'1' / '0'）。启动时同步读，首帧就是电视布局；theme-preflash.js 里有同一个键名 */
+  tvDevice: 'msp-tv-device',
+  /** 电视上第一次打开时已经替用户换成深色（只换一次，之后听用户的） */
+  tvThemeDefaulted: 'msp-tv-theme-defaulted',
 } as const
 
 /**

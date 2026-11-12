@@ -24,6 +24,7 @@ import {
   type AudioQuality,
   type CoverShape,
   type CardMode,
+  type TvModeSetting,
 } from '@/store/settingsStore'
 import { createAdapter, getAdapter, hasAdapter } from '@/api'
 import type { ServerConfig } from '@/api/types'
@@ -309,7 +310,7 @@ export default function Settings() {
   const setVolume = usePlayerStore(s => s.setVolume)
   const {
     apiPreferServer, apiAuthToken,
-    coverRemoteTemplate, coverLoadAlbum, coverLoadArtist, coverShape, playerCardMode,
+    coverRemoteTemplate, coverLoadAlbum, coverLoadArtist, coverShape, playerCardMode, tvMode,
     appName, splashEnabled,
     lyricsRemoteTemplate, lyricsConfirmTemplate, lyricsUseRemote, lyricsPreferRemote, lyricsFontSize,
     songDetailTemplate, songDetailPathReplace,
@@ -319,7 +320,7 @@ export default function Settings() {
     playbackRate, smoothTransitions, preloadNext, autoContinueQueue,
     notificationActions, seekStepSeconds, resumeAfterInterruption, musicBrainzEnabled,
     setApiPreferServer, setApiAuthToken,
-    setCoverRemoteTemplate, setCoverLoadAlbum, setCoverLoadArtist, setCoverShape, setPlayerCardMode,
+    setCoverRemoteTemplate, setCoverLoadAlbum, setCoverLoadArtist, setCoverShape, setPlayerCardMode, setTvMode,
     setAppName, setSplashEnabled,
     setLyricsRemoteTemplate, setLyricsConfirmTemplate, setLyricsUseRemote, setLyricsPreferRemote, setLyricsFontSize,
     setSongDetailTemplate, setSongDetailPathReplace,
@@ -680,6 +681,18 @@ export default function Settings() {
                 { value: 'auto', label: t('settings.cardMode.auto') },
                 { value: 'always', label: t('settings.cardMode.always') },
                 { value: 'off', label: t('settings.cardMode.off') },
+              ]}
+            />
+          </Row>
+          <Row name={t('settings.tvMode.name')} desc={t('settings.tvMode.desc')}>
+            <Segmented
+              label={t('settings.tvMode.name')}
+              value={tvMode}
+              onChange={(v) => setTvMode(v as TvModeSetting)}
+              options={[
+                { value: 'auto', label: t('settings.tvMode.auto') },
+                { value: 'on', label: t('settings.tvMode.on') },
+                { value: 'off', label: t('settings.tvMode.off') },
               ]}
             />
           </Row>
