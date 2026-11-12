@@ -56,7 +56,10 @@ const CACHE_LIMIT = 240
 const memory = new Map<string, ArtPalette>()
 let diskLoaded = false
 
-function cacheKey(url: string): string {
+/** 每次请求都变的鉴权参数（Subsonic 的 u / t / s …、Jellyfin 的令牌）：同一张封面不能因此算两遍 */
+const AUTH_PARAMS = ['t', 's', 'token', 'u', 'p', 'v', 'c', 'f', 'api_key', 'X-Emby-Token']
+
+export function paletteCacheKey(url: string): string {
   // 播放条上的封面常常是整张 data URL，有几 MB。拿它当键会把调色板缓存撑爆
   if (url.startsWith('data:') || url.startsWith('blob:')) {
     let hash = 2166136261
@@ -67,14 +70,24 @@ function cacheKey(url: string): string {
     }
     return `inline:${url.length}:${hash >>> 0}`
   }
-  // 鉴权参数（t / s / token）每次都变，同一张封面不能因此算两遍
   try {
     const u = new URL(url, location.href)
-    for (const k of ['t', 's', 'token', 'u', 'p', 'v', 'c', 'f', 'api_key', 'X-Emby-Token']) u.searchParams.delete(k)
+    // 套了一层转发的（Android 上 Subsonic 封面走本机转发 http://127.0.0.1:17321/play?u=<真地址>）：
+    // 键按里面那个真地址算。以前把这个 u 当成 Subsonic 的用户名删掉了，所有转发的封面就共用
+    // 「…/play」一个键——第一张算过的封面颜色从此套在每一首歌上
+    for (const value of u.searchParams.values()) {
+      if (/^https?:\/\//i.test(value)) return paletteCacheKey(value)
+    }
+    for (const k of AUTH_PARAMS) u.searchParams.delete(k)
     return u.origin + u.pathname + u.search
   } catch {
     return url
   }
+}
+
+/** 上面那个问题留在缓存里的键：本机转发地址删光了参数，颜色属于哪张封面已经说不清，扔掉重算 */
+function isStaleProxyKey(key: string): boolean {
+  return /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?\/[^?]*$/.test(key)
 }
 
 function loadDisk() {
@@ -84,7 +97,7 @@ function loadDisk() {
     const raw = localStorage.getItem(STORAGE_KEYS.artLight)
     if (!raw) return
     const entries = JSON.parse(raw) as Array<[string, ArtPalette]>
-    for (const [k, v] of entries) if (v && typeof v.h === 'number') memory.set(k, v)
+    for (const [k, v] of entries) if (v && typeof v.h === 'number' && !isStaleProxyKey(k)) memory.set(k, v)
   } catch {
     /* 坏数据就当没有 */
   }
@@ -115,7 +128,7 @@ function remember(key: string, palette: ArtPalette) {
 export function peekPalette(url: string | undefined): ArtPalette | undefined {
   if (!url) return undefined
   loadDisk()
-  return memory.get(cacheKey(url))
+  return memory.get(paletteCacheKey(url))
 }
 
 /* ---------------- 取色 ---------------- */
@@ -217,7 +230,7 @@ const inflight = new Map<string, Promise<ArtPalette | null>>()
 export function getPalette(url: string | undefined): Promise<ArtPalette | null> {
   if (!url) return Promise.resolve(null)
   loadDisk()
-  const key = cacheKey(url)
+  const key = paletteCacheKey(url)
   const hit = memory.get(key)
   if (hit) return Promise.resolve(hit)
   const running = inflight.get(key)
