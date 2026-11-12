@@ -10,8 +10,8 @@
  *
  * 沙箱自导航防线：`sandbox="allow-scripts"` 挡不住 iframe 自己 location.replace
  * 到外站（把凭据当 query 带走）。第一道是父文档的 CSP `frame-src blob:`
- * （index.html / tauri.conf.json）；这里是第二道——ready 之后 iframe 再触发
- * load 只可能是它自己导航走了，立刻 dispose 并标记 compromised。
+ * （index.html / tauri.conf.json）；这里是第二道——init 在 iframe 首次 load 之后
+ * 才发，之后 iframe 再触发 load 只可能是它自己导航走了，立刻 dispose 并标记 compromised。
  */
 
 import type {
@@ -217,17 +217,6 @@ export class PluginHost {
         this.handleSandboxMessage(event.data as SandboxToHostMessage)
       }
     }
-    // 自导航防线（CSP frame-src 之后的第二道）：blob 文档只会 load 一次，
-    // ready 之后再来一次 load 只可能是插件自己 location.replace 走了——
-    // 那一跳的 URL 里可能就带着 env.credentials。立刻拆掉，并标记该插件越界。
-    this.loadListener = () => {
-      if (this.disposed || !this.ready) return
-      this.markCompromised('sandbox navigated away after ready')
-    }
-    iframe.addEventListener('load', this.loadListener)
-    window.addEventListener('message', this.messageListener)
-    document.body.appendChild(iframe)
-
     // blob 文档里的脚本何时就绪无从得知：周期性重发 init 直到 ready（沙箱对
     // 重复 init 幂等），或超时放弃。200ms 一发，冷启动下首轮通常就命中。
     const initMessage: HostToSandboxMessage = {
@@ -236,10 +225,40 @@ export class PluginHost {
       code,
       env: { ...this.options.env, credentials: this.options.credentials },
     }
-    const retryTimer = setInterval(() => {
-      if (this.disposed) return
+    let retryTimer: ReturnType<typeof setInterval> | undefined
+    const startInit = () => {
+      if (retryTimer !== undefined || this.disposed) return
       this.postToSandbox(initMessage)
-    }, 200)
+      retryTimer = setInterval(() => {
+        if (this.disposed) return
+        this.postToSandbox(initMessage)
+      }, 200)
+    }
+
+    // 自导航防线（CSP frame-src 之后的第二道）：blob 文档只会 load 一次，
+    // 再来一次 load 只可能是插件自己 location.replace 走了——那一跳的 URL 里
+    // 可能就带着 env.credentials。立刻拆掉，并标记该插件越界。
+    //
+    // init 等第一次 load 之后才发：插件代码由 init 触发、以 blob 脚本插进沙箱文档，
+    // 文档还没装载完时插进去的脚本会把文档的 load 往后拖，拖到插件已经回了 ready——
+    // 宿主就把这第一次、正常的 load 当成了「ready 之后又 load」。慢设备冷启动（车机、
+    // 三个插件同时装）真会这样，三个音源一起被判越界停用。先等 load 再给代码，
+    // 插件就不可能抢在它前面跑，之后的任何一次 load 都是导航。
+    let loads = 0
+    this.loadListener = () => {
+      if (this.disposed) return
+      loads += 1
+      if (loads === 1) {
+        startInit()
+        return
+      }
+      this.markCompromised('sandbox navigated away after ready')
+    }
+    iframe.addEventListener('load', this.loadListener)
+    window.addEventListener('message', this.messageListener)
+    document.body.appendChild(iframe)
+    // 万一某个内核迟迟不给 load：3 秒后照样开始发 init（此后第一次 load 仍按「装载完成」算）
+    const loadFallback = setTimeout(startInit, 3000)
     try {
       const methods = await readyPromise
       this.methods = methods
@@ -255,6 +274,7 @@ export class PluginHost {
       this.dispose()
       throw err
     } finally {
+      clearTimeout(loadFallback)
       clearInterval(retryTimer)
     }
   }

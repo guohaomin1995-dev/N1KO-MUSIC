@@ -52,6 +52,8 @@ async function bootHost(options: Partial<PluginHostOptions> = {}) {
   })
   const ready = host.init('module.exports = {}')
   const iframe = document.querySelector('iframe') as HTMLIFrameElement
+  // 浏览器里 blob 文档装载完先来一次 load，宿主这才开始发 init
+  iframe.dispatchEvent(new Event('load'))
   postFromSandbox(iframe, { type: 'ready', methods: ['search'] })
   await ready
   return { host, iframe }
@@ -165,6 +167,39 @@ describe('沙箱自导航（S2 兜底）', () => {
     // 沙箱已拆：iframe 不在文档里，后续调用直接报废
     expect(document.querySelector('iframe')).toBeNull()
     await expect(host.call('search')).rejects.toThrow(/disposed/)
+  })
+
+  it('init 等首次 load 之后才发：插件代码不可能抢在文档装载完之前跑', async () => {
+    const host = new PluginHost(manifest, {
+      env: { appVersion: '1.0.0', locale: 'zh-CN', platform: 'web', userVariables: {} },
+      credentials: null, storage,
+    })
+    const ready = host.init('module.exports = {}')
+    const iframe = document.querySelector('iframe') as HTMLIFrameElement
+    const post = vi.spyOn(iframe.contentWindow as Window, 'postMessage')
+    await new Promise(resolve => setTimeout(resolve, 450))
+    expect(post).not.toHaveBeenCalled()
+    iframe.dispatchEvent(new Event('load'))
+    expect(post).toHaveBeenCalledWith(expect.objectContaining({ type: 'init' }), '*')
+    postFromSandbox(iframe, { type: 'ready', methods: [] })
+    await ready
+    expect(host.compromised).toBe(false)
+    host.dispose()
+  })
+
+  it('ready 先到、首次 load 后到（慢设备上插件脚本拖住了文档的 load）：不算越界，再来一次才算', async () => {
+    const host = new PluginHost(manifest, {
+      env: { appVersion: '1.0.0', locale: 'zh-CN', platform: 'web', userVariables: {} },
+      credentials: null, storage,
+    })
+    const ready = host.init('module.exports = {}')
+    const iframe = document.querySelector('iframe') as HTMLIFrameElement
+    postFromSandbox(iframe, { type: 'ready', methods: ['search'] })
+    await ready
+    iframe.dispatchEvent(new Event('load'))
+    expect(host.compromised).toBe(false)
+    iframe.dispatchEvent(new Event('load'))
+    expect(host.compromised).toBe(true)
   })
 
   it('ready 之前的 load（首次装载）不算越界', async () => {

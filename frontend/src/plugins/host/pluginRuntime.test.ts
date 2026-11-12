@@ -40,6 +40,8 @@ async function answerReady(): Promise<HTMLIFrameElement> {
     await new Promise(resolve => setTimeout(resolve, 0))
   }
   const iframe = document.querySelector('iframe') as HTMLIFrameElement
+  // 浏览器里 blob 文档装载完先来一次 load，宿主这才开始发 init
+  iframe.dispatchEvent(new Event('load'))
   window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'ready', methods: ['search'] },
     source: iframe.contentWindow,
