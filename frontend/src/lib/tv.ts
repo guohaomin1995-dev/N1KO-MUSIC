@@ -17,7 +17,7 @@ import { STORAGE_KEYS } from '@/services/storageKeys'
 import { useSettingsStore, type TvModeSetting } from '@/store/settingsStore'
 
 interface TvModePlugin {
-  /** MainActivity 注册的 TvModePlugin：UiModeManager 报电视，或者有 leanback 特性 */
+  /** MainActivity 注册的 TvModePlugin：UiModeManager 报电视、有 leanback 特性，或者没有触摸屏 */
   isTelevision(): Promise<{ television: boolean }>
 }
 
@@ -33,6 +33,25 @@ function readCachedDevice(): boolean | null {
 }
 
 const cached = readCachedDevice()
+
+/**
+ * 原生插件之外的兜底判断：电视盒子的 WebView 没有精确指针、没有触摸点，UA 里是 Android 但不带 Mobile
+ * （手机 UA 一定带 Mobile，平板的触摸点又不为 0）。几条同时成立才当电视。
+ * 有的盒子既不报电视模式也不声明 leanback（原生 TvModePlugin 认不出），靠这一条进电视模式。
+ */
+export function looksLikeTelevision(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  if (nativeOS !== 'android') return false
+  try {
+    if (window.matchMedia('(any-pointer: fine)').matches) return false
+  } catch {
+    // 老 WebView 不认 any-pointer：跳过这一条，靠触摸点和 UA
+  }
+  if ((navigator.maxTouchPoints ?? 0) > 0) return false
+  const ua = navigator.userAgent || ''
+  return /android/i.test(ua) && !/mobile/i.test(ua)
+}
+
 let deviceIsTv = cached ?? false
 const listeners = new Set<() => void>()
 
@@ -47,19 +66,22 @@ function subscribe(listener: () => void) {
  */
 async function detect(): Promise<void> {
   if (nativeOS !== 'android') return
+  // 先按设备特征判断，原生插件回话后取「或」：插件认不出、但长得像电视的盒子照样按电视走
+  let television = looksLikeTelevision()
   try {
-    const { television } = await TvModeNative.isTelevision()
-    try {
-      localStorage.setItem(STORAGE_KEYS.tvDevice, television ? '1' : '0')
-    } catch {
-      // 存不下就每次启动再问一次，不影响本次
-    }
-    if (television !== deviceIsTv) {
-      deviceIsTv = television
-      listeners.forEach(l => l())
-    }
+    const native = await TvModeNative.isTelevision()
+    television = television || native.television
   } catch {
-    // 插件不存在（旧壳 / 非 Android）：保持默认
+    // 插件不存在（旧壳）：只靠上面的特征判断
+  }
+  try {
+    localStorage.setItem(STORAGE_KEYS.tvDevice, television ? '1' : '0')
+  } catch {
+    // 存不下就每次启动再问一次，不影响本次
+  }
+  if (television !== deviceIsTv) {
+    deviceIsTv = television
+    listeners.forEach(l => l())
   }
 }
 
