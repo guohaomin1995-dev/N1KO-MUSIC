@@ -439,6 +439,19 @@ const VIRTUALIZE_THRESHOLD = 60
 const canDragRows = typeof window !== 'undefined' && window.matchMedia('(any-pointer: fine)').matches
 
 const LONG_PRESS_MS = 480
+
+/**
+ * 这次 contextmenu 是不是触摸长按带出来的。
+ *
+ * 安卓（WebView / Chrome）手指按住不放时，除了我们自己的长按计时器，系统还会补发一个
+ * contextmenu 事件。可多选的列表里两边都响应，就会同时进选择态、又弹出这一行的菜单，
+ * 两层叠在一起。新内核里 contextmenu 本身是 PointerEvent，带 pointerType；
+ * 老内核没有，就看手指是不是还按在这一行上。
+ */
+export function isTouchContextMenu(event: Event, fingerDown: boolean): boolean {
+  const pointerType = (event as Partial<PointerEvent>).pointerType
+  return pointerType === 'touch' || pointerType === 'pen' || fingerDown
+}
 /** 长按期间允许的手指位移，超过就当成滚动 */
 const LONG_PRESS_SLOP = 10
 /** 行高估计值：40px 封面 + 上下 10px 内边距 + 1px 分隔线 */
@@ -676,7 +689,10 @@ const SongRow = React.memo(function SongRow({
     pressTimer.current = null
     pressOrigin.current = null
   }, [])
+  /** 手指是不是还按在这一行上（判断 contextmenu 是不是长按带出来的） */
+  const fingerDown = useRef(false)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    fingerDown.current = true
     if (!onLongPress) return
     // 上一次没走完的计时必须先清掉，否则多指连点会留下孤儿计时器
     if (pressTimer.current) clearTimeout(pressTimer.current)
@@ -722,12 +738,21 @@ const SongRow = React.memo(function SongRow({
     }
   }
 
-  /* iPadOS 触控板双指点按 / 桌面右键：打开这一行的「更多」菜单（与行末那颗键同一个菜单） */
+  /*
+   * iPadOS 触控板双指点按 / 桌面右键：打开这一行的「更多」菜单（与行末那颗键同一个菜单）。
+   * 触摸长按在可多选的列表里只进选择态（菜单还有行末那颗「⋯」）；不能多选的列表里，
+   * 长按带出的 contextmenu 照旧打开菜单。
+   */
   const [menuOpen, setMenuOpen] = useState(false)
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
+    if (onLongPress && isTouchContextMenu(e.nativeEvent, fingerDown.current)) return
     setMenuOpen(true)
-  }, [])
+  }, [onLongPress])
+  const handleTouchEnd = useCallback(() => {
+    fingerDown.current = false
+    cancelPress()
+  }, [cancelPress])
 
   return (
     <div
@@ -739,8 +764,8 @@ const SongRow = React.memo(function SongRow({
       onDragEnd={canDragRows ? endSongDrag : undefined}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
-      onTouchEnd={cancelPress}
-      onTouchCancel={cancelPress}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       aria-selected={selectionActive ? !!selected : undefined}
       data-selected={selected ? '' : undefined}
     >
