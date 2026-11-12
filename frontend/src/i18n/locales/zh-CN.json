@@ -938,6 +938,8 @@
   "sources.subtitleAuth": "登录 {name}",
   "sources.authNone": "此音源无需登录，直接添加即可",
   "sources.anonymous": "先不登录，直接添加",
+  "sources.addDirectly": "直接添加",
+  "sources.subtitleAdd": "添加 {name}",
   "sources.notSignedIn": "未登录",
   "sources.signedIn": "已登录",
   "sources.expiredRelogin": "登录已过期，请重新扫码登录",

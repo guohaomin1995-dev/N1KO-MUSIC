@@ -938,6 +938,8 @@
   "sources.subtitleAuth": "Sign in to {name}",
   "sources.authNone": "This source needs no sign-in. Just add it.",
   "sources.anonymous": "Skip sign-in and add",
+  "sources.addDirectly": "Add",
+  "sources.subtitleAdd": "Add {name}",
   "sources.notSignedIn": "Not signed in",
   "sources.signedIn": "Signed in",
   "sources.expiredRelogin": "Your sign-in has expired — scan the code again",

@@ -184,7 +184,12 @@ export default function LoginPage() {
       setError(t('sources.errorNotInstalled'))
       return
     }
-    handlePluginSelect(plugin, t('sources.expiredRelogin'))
+    /*
+     * 「登录已过期」只对真有过账号的说：设置页里还没连过的插件、本来就不用登录的
+     * 音源（小宇宙免登录）也走这个地址进来，对它们说过期是在胡说。
+     */
+    const hadAccount = servers.some(s => s.type === 'plugin' && s.pluginId === plugin.id && !!s.credentials)
+    handlePluginSelect(plugin, hadAccount ? t('sources.expiredRelogin') : '')
     // handlePluginSelect 每次渲染都是新的闭包，进依赖数组会让这段反复触发；
     // 真正的触发条件只有「地址里的插件」与「插件表读完了」这两件事
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -467,7 +472,9 @@ export default function LoginPage() {
                   })
                 : step === 'plugin-disclaimer'
                   ? t('sources.subtitleDisclaimer', { name: selectedPlugin?.name ?? '' })
-                  : t('sources.subtitleAuth', { name: selectedPlugin?.name ?? '' })}
+                  : pluginManifest?.auth.kind === 'none'
+                    ? t('sources.subtitleAdd', { name: selectedPlugin?.name ?? '' })
+                    : t('sources.subtitleAuth', { name: selectedPlugin?.name ?? '' })}
           </p>
 
           {/*
@@ -553,7 +560,7 @@ export default function LoginPage() {
                           variant="ghost"
                           onClick={() => void finishPluginAuth(null)}
                         >
-                          {t('sources.anonymous')}
+                          {pluginManifest.auth.kind === 'none' ? t('sources.addDirectly') : t('sources.anonymous')}
                         </Button>
                       </div>
                     )}
