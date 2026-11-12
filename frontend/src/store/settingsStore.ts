@@ -20,6 +20,9 @@ export type CoverShape = 'square' | 'circle'
 /** 横屏卡片模式：auto = iPad / 手机横过来时；always = 电脑上的横屏窗口也用；off = 不用 */
 export type CardMode = 'auto' | 'always' | 'off'
 
+/** 电视模式：auto 跟着设备走（Android TV / Google TV 上自动打开），on / off 强制 */
+export type TvModeSetting = 'auto' | 'on' | 'off'
+
 /** 音频质量 */
 export type AudioQuality = 'lossless' | 'high' | 'medium' | 'low'
 
@@ -76,6 +79,9 @@ interface SettingsState {
   /** 打开软件时是否播放开屏。字标按 appName 逐字生成。 */
   splashEnabled: boolean
   setSplashEnabled: (v: boolean) => void
+  /** 电视模式（遥控器布局）：auto 在电视上自动打开，on / off 强制（lib/tv） */
+  tvMode: TvModeSetting
+  setTvMode: (mode: TvModeSetting) => void
 
   // --- 歌词设置 ---
   /** 自定义歌词 API 模板，如 https://api.example.com/lyrics?artist={artist}&title={title} */
@@ -201,6 +207,7 @@ export const useSettingsStore = create<SettingsState>()(
       playerCardMode: 'auto',
       appName: '',
       splashEnabled: true,
+      tvMode: 'auto',
       lyricsRemoteTemplate: LRCAPI_LYRICS_URL,
       lyricsConfirmTemplate: '',
       lyricsUseRemote: true,
@@ -248,6 +255,7 @@ export const useSettingsStore = create<SettingsState>()(
       setPlayerCardMode: (mode) => set({ playerCardMode: mode }),
       setAppName: (name) => set({ appName: clampAppName(name) }),
       setSplashEnabled: (v) => set({ splashEnabled: v }),
+      setTvMode: (mode) => set({ tvMode: mode }),
       setLyricsRemoteTemplate: (t) => set({ lyricsRemoteTemplate: t }),
       setLyricsConfirmTemplate: (t) => set({ lyricsConfirmTemplate: t }),
       setLyricsUseRemote: (v) => set({ lyricsUseRemote: v }),

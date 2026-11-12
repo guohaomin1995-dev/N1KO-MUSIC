@@ -62,6 +62,7 @@ import type { Song } from '@/api/types'
 import { songIsStarred, useFavoriteIdsBySource } from '@/hooks/useFavoriteState'
 import { detailPath } from '@/utils/detailPath'
 import { startSongDrag, endSongDrag } from '@/lib/songDrag'
+import { useTvMode } from '@/lib/tv'
 
 /**
  * 选择集的键。
@@ -137,6 +138,8 @@ interface SongListProps {
   getAlternates?: (index: number) => Song[] | undefined
   /** 用户在切换菜单里选了另一来源的版本（替换调用方列表里的这一行） */
   onReplace?: (index: number, song: Song) => void
+  /** 只画前几行（电视首页的「今天听什么」）；点哪一行照样从整张列表接着放 */
+  maxRows?: number
 }
 
 export function SongList({
@@ -151,6 +154,7 @@ export function SongList({
   sourceBadge = false,
   getAlternates,
   onReplace,
+  maxRows,
 }: SongListProps) {
   const { t } = useT()
   // 只订阅 id 和 isPlaying，不订阅 currentTime，避免高频重渲染
@@ -383,11 +387,11 @@ export function SongList({
 
   return (
     <>
-      {songs.length > VIRTUALIZE_THRESHOLD ? (
+      {songs.length > VIRTUALIZE_THRESHOLD && !maxRows ? (
         <VirtualSongRows songs={songs} className={className} renderRow={renderRow} />
       ) : (
         <div className={cn('song-list flex flex-col', className)}>
-          {songs.map(renderRow)}
+          {(maxRows ? songs.slice(0, maxRows) : songs).map(renderRow)}
         </div>
       )}
 
@@ -738,6 +742,14 @@ const SongRow = React.memo(function SongRow({
     }
   }
 
+  /* 电视：整行就是焦点（确认键播放），按右进入行内的收藏 / 更多（lib/spatialNav 的 data-nav-row） */
+  const tv = useTvMode()
+  const handleRowKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
+    e.preventDefault()
+    handlePlay()
+  }, [handlePlay])
+
   /*
    * iPadOS 触控板双指点按 / 桌面右键：打开这一行的「更多」菜单（与行末那颗键同一个菜单）。
    * 触摸长按在可多选的列表里只进选择态（菜单还有行末那颗「⋯」）；不能多选的列表里，
@@ -757,6 +769,11 @@ const SongRow = React.memo(function SongRow({
   return (
     <div
       className={cn('song-row group relative', isCurrentSong && 'is-current', selected && 'bg-lime/15')}
+      tabIndex={tv ? 0 : undefined}
+      role={tv ? 'button' : undefined}
+      aria-label={tv ? `${song.title} · ${song.artist}` : undefined}
+      data-nav-row={tv ? '' : undefined}
+      onKeyDown={tv ? handleRowKeyDown : undefined}
       onClick={handleRowClick}
       onContextMenu={handleContextMenu}
       draggable={canDragRows}
@@ -792,6 +809,9 @@ const SongRow = React.memo(function SongRow({
             onClick={(e) => { e.stopPropagation(); handlePlay() }}
             className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-2 group-hover:opacity-100 focus-visible:opacity-100"
             aria-label={t('action.play')}
+            // 电视上整行就是播放键，这颗不进焦点序列
+            data-nav-skip={tv ? '' : undefined}
+            tabIndex={tv ? -1 : undefined}
           >
             <span className="press-pop flex h-7 w-7 items-center justify-center rounded-pill bg-lime text-lime-ink">
               {isPlaying && isCurrentSong ? (

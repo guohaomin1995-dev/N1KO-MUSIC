@@ -34,7 +34,8 @@ function Probe() {
 
 describe('来源连上之后，封面地址跟着更新', () => {
   it('连上之前没有服务器封面；连上（适配器登记、connectedServerIds 有它）之后就有了', () => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    env.IS_REACT_ACT_ENVIRONMENT = true
     useSettingsStore.setState({ coverSource: 'server_first' } as never)
     useServerStore.setState({ connectedServerIds: [] } as never)
     const host = document.createElement('div')

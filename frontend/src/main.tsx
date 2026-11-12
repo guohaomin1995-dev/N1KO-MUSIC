@@ -20,8 +20,9 @@ import { syncNotes } from './services/notes'
 import { useSyncStore } from './store/syncStore'
 import { installWindowDrag } from '@/lib/windowDrag'
 import { installOklchFallback } from '@/lib/oklchFallback'
+import { tvDeviceKnownNow, whenTvDeviceKnown } from '@/lib/tv'
 
-// 旧内核（车机常见）不认识 oklch()：跟着封面变的那些颜色在这里算成 rgb；新内核上什么都不做
+// 旧内核（车机、电视盒子常见）不认识 oklch()：跟着封面变的那些颜色在这里算成 rgb；新内核上什么都不做
 installOklchFallback()
 
 // 清掉旧版每 30 秒新增一条、从不回收的推荐缓存键：已被撑满配额的用户
@@ -63,8 +64,15 @@ void Promise.all([initListeningHistory(), whenSyncStoreReady()]).then(() => {
   void syncNotes().catch(() => {})
 })
 
+/**
+ * 装好后第一次在电视上启动：原生壳还没回答「这是不是电视」，先等它一下（lib/tv，最多 800ms，
+ * 开屏动画还在放）。不等的话首帧是手机布局，答案一到整个外壳再换一遍。之后的启动读缓存，不等。
+ */
+let tvKnown = tvDeviceKnownNow()
+const tvDeviceKnown = whenTvDeviceKnown().then(() => { tvKnown = true })
+
 function bothStoresHydrated() {
-  return useServerStore.persist.hasHydrated() && useSettingsStore.persist.hasHydrated()
+  return useServerStore.persist.hasHydrated() && useSettingsStore.persist.hasHydrated() && tvKnown
 }
 
 /**
@@ -84,6 +92,7 @@ function Bootstrap({ children }: { children: React.ReactNode }) {
     }
     const unsub1 = useServerStore.persist.onFinishHydration(tryReady)
     const unsub2 = useSettingsStore.persist.onFinishHydration(tryReady)
+    void tvDeviceKnown.then(tryReady)
     tryReady()
     return () => {
       unsub1()

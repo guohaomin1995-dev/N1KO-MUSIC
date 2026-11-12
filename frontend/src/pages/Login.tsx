@@ -512,6 +512,7 @@ export default function LoginPage() {
                       setStep('type')
                     }}
                     className={BACK_BTN_CLS}
+                    data-tv-back=""
                   >
                     <ArrowLeft size={15} />
                     {t('action.back')}
@@ -733,6 +734,7 @@ export default function LoginPage() {
                   <button
                     onClick={() => setStep('type')}
                     className={BACK_BTN_CLS}
+                    data-tv-back=""
                   >
                     <ArrowLeft size={15} />
                     {t('action.back')}
