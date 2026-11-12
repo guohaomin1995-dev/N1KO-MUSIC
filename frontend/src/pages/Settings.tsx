@@ -12,6 +12,7 @@ import {
   SignOut, CaretRight, WifiHigh, PencilSimple,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { useTvMode } from '@/lib/tv'
 import { SourcesSettings } from '@/components/settings/SourcesSettings'
 import { SourceBadge } from '@/components/sources/SourceBadge'
 import { useServerStore, getServerTypeLabel } from '@/store/serverStore'
@@ -303,6 +304,7 @@ export default function Settings() {
   const { servers, activeServerId, activateServer, removeServer, disconnect, updateServerUrl } = useServerStore()
   const { theme, setTheme } = useThemeStore()
   const { t, locale } = useT()
+  const tv = useTvMode()
   const visibleName = useAppName()
   const checkForUpdate = useAppUpdateStore(s => s.check)
   const updateChecking = useAppUpdateStore(s => s.checking)
@@ -310,7 +312,7 @@ export default function Settings() {
   const setVolume = usePlayerStore(s => s.setVolume)
   const {
     apiPreferServer, apiAuthToken,
-    coverRemoteTemplate, coverLoadAlbum, coverLoadArtist, coverShape, playerCardMode, tvMode,
+    coverRemoteTemplate, coverLoadAlbum, coverLoadArtist, coverShape, playerCardMode, tvMode, tvSkyline,
     appName, splashEnabled,
     lyricsRemoteTemplate, lyricsConfirmTemplate, lyricsUseRemote, lyricsPreferRemote, lyricsFontSize,
     songDetailTemplate, songDetailPathReplace,
@@ -320,7 +322,7 @@ export default function Settings() {
     playbackRate, smoothTransitions, preloadNext, autoContinueQueue,
     notificationActions, seekStepSeconds, resumeAfterInterruption, musicBrainzEnabled,
     setApiPreferServer, setApiAuthToken,
-    setCoverRemoteTemplate, setCoverLoadAlbum, setCoverLoadArtist, setCoverShape, setPlayerCardMode, setTvMode,
+    setCoverRemoteTemplate, setCoverLoadAlbum, setCoverLoadArtist, setCoverShape, setPlayerCardMode, setTvMode, setTvSkyline,
     setAppName, setSplashEnabled,
     setLyricsRemoteTemplate, setLyricsConfirmTemplate, setLyricsUseRemote, setLyricsPreferRemote, setLyricsFontSize,
     setSongDetailTemplate, setSongDetailPathReplace,
@@ -696,6 +698,11 @@ export default function Settings() {
               ]}
             />
           </Row>
+          {tv && (
+            <Row name={t('settings.tvSkyline.name')} desc={t('settings.tvSkyline.desc')}>
+              <Toggle checked={tvSkyline} onChange={setTvSkyline} label={t('settings.tvSkyline.name')} />
+            </Row>
+          )}
         </Section>
 
         {/* 音频 */}

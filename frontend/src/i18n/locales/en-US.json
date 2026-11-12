@@ -417,6 +417,8 @@
   "settings.tvMode.auto": "Auto",
   "settings.tvMode.on": "On",
   "settings.tvMode.off": "Off",
+  "settings.tvSkyline.name": "TV lyrics screensaver",
+  "settings.tvSkyline.desc": "While music plays on a TV, eight seconds without a key press turns Now Playing into full-screen sky-screen lyrics: smoke, a spotlight and glass text. Any key brings the controls back. Turn it off if the box stutters.",
   "settings.volume.name": "Default volume",
   "settings.quality.wifi": "Streaming quality (Wi-Fi / LAN)",
   "settings.quality.desc": "Lossless asks the server for the original file; the other tiers ask it to transcode to that bitrate",

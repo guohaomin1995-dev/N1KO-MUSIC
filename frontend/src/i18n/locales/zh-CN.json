@@ -417,6 +417,8 @@
   "settings.tvMode.auto": "自动",
   "settings.tvMode.on": "开",
   "settings.tvMode.off": "关",
+  "settings.tvSkyline.name": "电视歌词屏保",
+  "settings.tvSkyline.desc": "电视上放歌时八秒不按遥控器，播放页换成全屏的天际屏歌词：烟雾、聚光灯、玻璃字。按任意键回来。盒子性能弱、画面卡顿就关掉。",
   "settings.volume.name": "默认音量",
   "settings.quality.wifi": "流媒体音质（Wi-Fi / 局域网）",
   "settings.quality.desc": "无损将请求服务器原始歌曲格式；其他选项将要求服务器转码为指定码率",

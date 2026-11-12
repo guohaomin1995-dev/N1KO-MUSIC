@@ -1773,6 +1773,28 @@ html[data-tv] .tv-rail-item:focus::before {
   opacity: 0.35;
 }
 
+/* 歌词屏保（电视设置里的「电视歌词屏保」）：封面和歌词列表淡出，全屏的天际屏淡入；按键时反过来 */
+.tv-np-main {
+  transition: opacity var(--dur-5) var(--ease-out);
+}
+
+.tv-np.sky-on .tv-np-main {
+  opacity: 0;
+}
+
+.tv-sky-fade {
+  animation: tv-sky-in 1.2s var(--ease-out) backwards;
+  transition: opacity 0.7s var(--ease-out);
+}
+
+.tv-sky-fade.is-out {
+  opacity: 0;
+}
+
+@keyframes tv-sky-in {
+  from { opacity: 0; }
+}
+
 /* 进度条拿到焦点：一条淡墨底的胶囊，轨道加粗、拇指出现（左右键快退快进） */
 html[data-tv] .tv-progress:focus {
   background-color: oklch(var(--ink) / 0.08);

@@ -82,6 +82,9 @@ interface SettingsState {
   /** 电视模式（遥控器布局）：auto 在电视上自动打开，on / off 强制（lib/tv） */
   tvMode: TvModeSetting
   setTvMode: (mode: TvModeSetting) => void
+  /** 电视上放歌时八秒不按键，播放页换成全屏的天际屏歌词（烟雾、聚光灯、玻璃字）；盒子带不动可以关 */
+  tvSkyline: boolean
+  setTvSkyline: (v: boolean) => void
 
   // --- 歌词设置 ---
   /** 自定义歌词 API 模板，如 https://api.example.com/lyrics?artist={artist}&title={title} */
@@ -208,6 +211,7 @@ export const useSettingsStore = create<SettingsState>()(
       appName: '',
       splashEnabled: true,
       tvMode: 'auto',
+      tvSkyline: true,
       lyricsRemoteTemplate: LRCAPI_LYRICS_URL,
       lyricsConfirmTemplate: '',
       lyricsUseRemote: true,
@@ -256,6 +260,7 @@ export const useSettingsStore = create<SettingsState>()(
       setAppName: (name) => set({ appName: clampAppName(name) }),
       setSplashEnabled: (v) => set({ splashEnabled: v }),
       setTvMode: (mode) => set({ tvMode: mode }),
+      setTvSkyline: (v) => set({ tvSkyline: v }),
       setLyricsRemoteTemplate: (t) => set({ lyricsRemoteTemplate: t }),
       setLyricsConfirmTemplate: (t) => set({ lyricsConfirmTemplate: t }),
       setLyricsUseRemote: (v) => set({ lyricsUseRemote: v }),

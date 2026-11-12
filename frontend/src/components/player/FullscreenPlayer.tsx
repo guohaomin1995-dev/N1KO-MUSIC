@@ -86,6 +86,9 @@ import { useTvIdle, TvUpNextRow } from '@/components/tv/TvPlayerParts'
 
 
 type Layout = 'stack' | 'portrait' | 'landscape' | 'cards' | 'tabletop' | 'tv'
+
+/** 电视歌词屏保淡出要多久（和 index.css 里 .tv-sky-fade 的过渡一致） */
+const TV_SKY_FADE_MS = 700
 type PaneView = 'lyrics' | 'queue'
 
 const LANDSCAPE_QUERY = '(orientation: landscape)'
@@ -424,6 +427,20 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
     currentSong?.serverId  // 歌词要向这首歌自己的音源要，不能问主库
   )
   const lyrics = lyricsQuery.data
+
+  /* 电视歌词屏保：放着歌、八秒没按键（控制已经淡下去）、这首有逐句歌词——整页换成天际屏。
+     按任意键 tvIdle 变回 false，屏保淡出；淡出的那一小段里烟雾和字还挂着，不是一下子没了 */
+  const tvSkylineOn = useSettingsStore(s => s.tvSkyline)
+  const tvSky = tv && tvIdle && tvSkylineOn && !!lyrics?.lines.some(line => line.time > 0)
+  const [tvSkyMounted, setTvSkyMounted] = useState(false)
+  useEffect(() => {
+    if (tvSky) {
+      setTvSkyMounted(true)
+      return
+    }
+    const timer = window.setTimeout(() => setTvSkyMounted(false), TV_SKY_FADE_MS)
+    return () => window.clearTimeout(timer)
+  }, [tvSky])
 
   /* 播放顺序（开着随机就按随机序）：悬停排法的封面带用它 */
   const order = useMemo(() => {
@@ -983,6 +1000,7 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
   const lyricBackdrop =
     ((layout === 'stack' || layout === 'portrait') && mobileView === 'lyrics')
     || ((layout === 'landscape' || layout === 'cards') && widePane === 'lyrics')
+    || (layout === 'tv' && tvSkyMounted)
 
   const spotlightStage = (wide: boolean) => (
     <div
@@ -1200,8 +1218,8 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
     const tvCtl = cn(softBtnBase, 'tv-ctl relative h-[46px] w-[46px] text-ink aria-pressed:text-leaf')
     const hint = tvZone === 'progress' ? t('tv.hint.progress') : tvZone === 'upnext' ? t('tv.hint.upNext') : t('tv.hint.controls')
     body = (
-      <div className={cn('tv-np relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden', tvIdle && 'is-idle', tvZone === 'upnext' && 'upnext-open')}>
-        <div className="flex min-h-0 flex-1 gap-10 px-[80px] pt-[52px]">
+      <div className={cn('tv-np relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden', tvIdle && 'is-idle', tvSky && 'sky-on', tvZone === 'upnext' && 'upnext-open')}>
+        <div className="tv-np-main flex min-h-0 flex-1 gap-10 px-[80px] pt-[52px]">
           {coverStage('mx-0 h-[280px] w-[280px]')}
           <div className="flex min-w-0 flex-1 flex-col" data-fs-reveal="">
             <motion.p
@@ -1304,6 +1322,13 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
             onBack={focusTvPlay}
           />
         </div>
+
+        {/* 歌词屏保：盖在整页上，烟雾在最底下（lyricBackdrop）；不接焦点、不接指针 */}
+        {tvSkyMounted && lyrics && (
+          <div className={cn('tv-sky-fade pointer-events-none absolute inset-0 px-[56px] pb-[36px] pt-[30px]', !tvSky && 'is-out')} aria-hidden="true" data-nav-skip="">
+            <SkylineLyric lines={lyrics.lines} wide className="h-full" />
+          </div>
+        )}
       </div>
     )
   } else {
@@ -1375,7 +1400,13 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.24, ease: EASE_OUT }}
       >
-        {lyricBackdrop && <LyricSmoke coverUrl={lyricCover} />}
+        {lyricBackdrop && (
+          <LyricSmoke
+            coverUrl={lyricCover}
+            maxDpr={layout === 'tv' ? 1.5 : 2}
+            className={layout === 'tv' ? cn('tv-sky-fade', !tvSky && 'is-out') : undefined}
+          />
+        )}
         {layout !== 'tabletop' && layout !== 'tv' && header}
         {body}
       </motion.div>
