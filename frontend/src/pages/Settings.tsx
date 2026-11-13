@@ -598,6 +598,9 @@ export default function Settings() {
               size="sm"
               onClick={() => navigate('/login')}
               className="gap-1.5 h-11 [@media(hover:hover)]:h-9"
+              /* 遥控器：这颗按钮独自靠左，上一行、下一行的按钮全靠右，正上正下永远轮不到它。
+                 按整行的宽度算它的框（lib/spatialNav 的 data-nav-w），上下走时它就是「这一行」 */
+              data-nav-w="2000"
             >
               <Plus className="h-3.5 w-3.5" />
               {t('settings.source.add')}

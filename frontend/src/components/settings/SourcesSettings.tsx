@@ -572,6 +572,8 @@ export function SourcesSettings() {
             size="sm"
             onClick={() => setPasteOpen(v => !v)}
             className="self-start h-11 [@media(hover:hover)]:h-9"
+            // 遥控器：独自靠左的一颗，按整行的宽度算框（同「添加音源」）
+            data-nav-w="2000"
           >
             {t('sources.settings.pasteToggle')}
           </Button>
