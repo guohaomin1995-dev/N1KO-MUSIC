@@ -62,6 +62,13 @@ describe('选择器展开', () => {
   it('列表里不需要展开的选择器也要带上（原规则在老内核上整条作废了）；展开后仍不认识的丢掉', () => {
     expect(lowerSelectorList('.a, :is(.b, .c), .d:has(.e), .f:focus-visible')).toBe('.a,.b,.c')
   })
+
+  it('列表里混着 :focus-visible / :has()：留下老内核认识的那一半；整条都不认识的不出兜底', () => {
+    expect(lowerSelectorList('html[data-tv] :focus, html[data-tv] :focus-visible')).toBe('html[data-tv] :focus')
+    expect(lowerSelectorList('.a, .b:has(.c)')).toBe('.a')
+    expect(lowerSelectorList('.play-key:focus-visible')).toBeNull()
+    expect(lowerSelectorList(':focus-visible, .x:has(.y)')).toBeNull()
+  })
 })
 
 describe('插件', () => {
@@ -117,6 +124,8 @@ describe('插件', () => {
     for (const sel of legacy) expect(sel).not.toMatch(/:(?:is|where|has)\(|:focus-visible/)
     expect(legacy.some(s => /input\[type=['"]?button/.test(s))).toBe(true)
     expect(legacy.some(s => s.startsWith('html[data-tv] button:focus:not('))).toBe(true)
+    // 电视上去掉系统焦点框的那条（原规则和 :focus-visible 写在一起，老内核上整条作废）
+    expect(legacy).toContain('html[data-tv] :focus')
     out.root.walkDecls(d => {
       if (!d.prop.startsWith('--') && /\d(?:d|s|l)vh\b/.test(d.value)) expect(d.prev()?.value).toBe(d.value.replace(/(\d)(?:d|s|l)vh\b/g, '$1vh'))
     })

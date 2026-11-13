@@ -319,6 +319,14 @@ p {
   outline-offset: 2px;
 }
 
+/* 老内核（Chrome 86 以前）不认识 :focus-visible：上面这条不生效，露出来的是系统自带的焦点框（安卓上是一圈橙色的方框），
+   而且点一下、遥控器挪一下都会出来。统一去掉；电视模式有自己的焦点样式（见后面） */
+@supports not selector(:focus-visible) {
+  :focus {
+    outline: none;
+  }
+}
+
 a {
   text-underline-offset: 0.18em;
   text-decoration-thickness: 1px;

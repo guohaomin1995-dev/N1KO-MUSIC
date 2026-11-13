@@ -10,6 +10,7 @@
  *    办法：展开成普通选择器，整条规则复制一份紧跟在原规则后面，包进 `@supports not selector(:is(a))`
  *    （83 认识 selector()，88 起这个条件为假，新内核不进去）。
  *    展开以后特异性会变高；原本特异性为 0 的选择器（整条都包在 :where 里，本意是谁都能盖过它）不展开。
+ *    列表里混着 :focus-visible（86）、:has()（105）的同理：兜底里只留老内核认识的那几条。
  * 2. dvh / svh / lvh 单位（108）：前面补一行换成 vh 的同名声明。
  * 3. overflow: clip（90）：前面补 overflow: hidden。
  * 4. 逻辑简写（87）：inset 直接换成上右下左四条；margin-inline、padding-inline、margin-block、padding-block 前面补左右 / 上下的写法。
@@ -251,9 +252,13 @@ function zeroSpecificity(sel) {
 /** 展开以后老内核仍然不认识的写法：整条规则会作废，这样的选择器不放进兜底规则 */
 const STILL_UNSUPPORTED = /:(?:is|where|matches|has)\(|:focus-visible|:-webkit-any\(/i
 
-/** 选择器列表的老内核版本；不需要（或没法）兜底时返回 null */
+/**
+ * 选择器列表的老内核版本；不需要（或没法）兜底时返回 null。
+ * 列表里混着老内核不认识、又展不开的写法（:focus-visible、:has()）时也要出一份：
+ * `a:focus, a:focus-visible { outline: none }` 在老内核上整条作废，兜底里留下认识的那一半。
+ */
 export function lowerSelectorList(selector) {
-  if (!/:(?:is|where|matches|-webkit-any|not)\(/i.test(selector)) return null
+  if (!/:(?:is|where|matches|-webkit-any|not|has)\(|:focus-visible/i.test(selector)) return null
   const out = []
   let changed = false
   for (const sel of splitList(selector)) {
@@ -263,7 +268,10 @@ export function lowerSelectorList(selector) {
     }
     const lowered = lowerComplex(sel)
     if (!lowered || lowered.length !== 1 || lowered[0] !== sel) changed = true
-    for (const l of lowered ?? []) if (!STILL_UNSUPPORTED.test(l) && !out.includes(l)) out.push(l)
+    for (const l of lowered ?? []) {
+      if (STILL_UNSUPPORTED.test(l)) changed = true
+      else if (!out.includes(l)) out.push(l)
+    }
   }
   return changed && out.length ? out.join(',') : null
 }
