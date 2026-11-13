@@ -1684,6 +1684,11 @@ html[data-tv] .animate-route-in {
   animation: none;
 }
 
+/* 弹出菜单外面那层壳带着 will-change: transform：有的盒子会因此按低一档的清晰度画这一层 */
+html[data-tv] [data-radix-popper-content-wrapper] {
+  will-change: auto !important;
+}
+
 /* 封面加载出来时的淡入：一屏十几张图各占一层合成，一起淡入正好赶上换页最忙的那一下 */
 html[data-tv] img {
   transition: none;
@@ -1814,11 +1819,13 @@ html[data-tv] .tv-bump-down { animation: tv-bump-down 0.28s var(--ease-out); }
   z-index: -1;
   border-radius: 999px;
   background: transparent;
-  clip-path: inset(0 132px 0 0 round 19px);
+  /* 收着时底色只垫在图标后面；展开后铺满整项。直接改这块的大小，不用 clip-path 裁：
+     有的电视盒子显卡裁出来的圆角不带抗锯齿，边上一圈锯齿 */
+  right: 132px;
 }
 
 .tv-rail:focus-within .tv-rail-item::before {
-  clip-path: inset(0 0 0 0 round 19px);
+  right: 0;
 }
 
 .tv-rail-item .lbl {
