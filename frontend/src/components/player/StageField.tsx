@@ -4,7 +4,7 @@
  * 换歌时不是整片换色，而是新颜色从封面所在的位置向外漫开（扩散转场）——
  * 新旧两组光源都在着色器里，用一个半径从 0 长到铺满的圆做分界。
  *
- * 成本控制：画布只有显示尺寸的 1/4，CSS 拉伸后本来就是柔的；30fps；
+ * 成本控制：画布只有显示尺寸的 1/4（电视上 1/2），CSS 拉伸后本来就是柔的；30fps；
  * 页面隐藏、浮层关掉就停；减弱动态效果时只在换歌时画一帧静止的光。
  * 没有 WebGL（或上下文丢了）时退回 CSS 渐变（.stage-fallback）。
  */
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { oklchToRgb } from '@/lib/oklch'
 import { prefersReducedMotion } from '@/lib/motion'
 import { useArtLightStore } from '@/store/artLightStore'
+import { isTvModeActive } from '@/lib/tv'
 import type { ArtPalette } from '@/services/artLight'
 
 const VERT = `
@@ -24,45 +25,83 @@ void main() {
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`
 
+/*
+ * 着色器里的数都要经得起「半精度」：电视盒子、不少手机的显卡在片元着色器里只有 16 位浮点
+ * （mediump 就是它，有的连 highp 都没有），有效数字三位出头。
+ * - 时间不能直接传进来算 sin(uv * 3.1 + t * 0.3)：开着播放页几分钟后 t 就是几百，加上去以后
+ *   小数部分只剩零点几的精度，一屏的像素只算得出十来个不同的值——背景就成了一格一格的色块，越放越粗。
+ *   所以灯的位置、扭动的相位都在 JS 里按双精度算好（相位收进 0–2π）再传进来。
+ * - 抖动（消色带用的那点噪声）不能用 fract(sin(…) * 43758.5)：半精度下恒为 0，等于没抖。改成查一张噪声贴图。
+ */
 const FRAG = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
 precision mediump float;
+#endif
 uniform vec2 uRes;
-uniform float uTime;
+uniform vec4 uP0;
+uniform vec4 uP1;
+uniform vec2 uWarp;
 uniform vec3 uA[5];
 uniform vec3 uB[5];
 uniform float uReveal;
 uniform vec2 uOrigin;
+uniform sampler2D uNoise;
 varying vec2 vUv;
 
-vec3 field(vec3 base, vec3 c0, vec3 c1, vec3 c2, vec3 c3, vec2 uv, float t, float aspect) {
-  vec2 p = vec2(uv.x * aspect, uv.y);
-  vec2 p0 = vec2(aspect * (0.22 + 0.10 * sin(t * 0.21)), 0.80 + 0.08 * cos(t * 0.17));
-  vec2 p1 = vec2(aspect * (0.82 + 0.09 * cos(t * 0.19)), 0.72 + 0.10 * sin(t * 0.23));
-  vec2 p2 = vec2(aspect * (0.30 + 0.12 * cos(t * 0.13)), 0.16 + 0.09 * sin(t * 0.29));
-  vec2 p3 = vec2(aspect * (0.76 + 0.11 * sin(t * 0.11)), 0.24 + 0.10 * cos(t * 0.15));
+vec3 field(vec3 base, vec3 c0, vec3 c1, vec3 c2, vec3 c3, vec2 p) {
+  vec2 d0 = p - uP0.xy;
+  vec2 d1 = p - uP0.zw;
+  vec2 d2 = p - uP1.xy;
+  vec2 d3 = p - uP1.zw;
   vec3 col = base;
-  col += c0 * exp(-dot(p - p0, p - p0) / 0.20);
-  col += c1 * exp(-dot(p - p1, p - p1) / 0.15);
-  col += c2 * exp(-dot(p - p2, p - p2) / 0.14);
-  col += c3 * exp(-dot(p - p3, p - p3) / 0.11);
+  col += c0 * exp(-dot(d0, d0) / 0.20);
+  col += c1 * exp(-dot(d1, d1) / 0.15);
+  col += c2 * exp(-dot(d2, d2) / 0.14);
+  col += c3 * exp(-dot(d3, d3) / 0.11);
   return col;
 }
 
 void main() {
   float aspect = uRes.x / uRes.y;
-  float t = uTime;
-  vec2 uv = vUv + 0.03 * vec2(sin(vUv.y * 3.1 + t * 0.30), cos(vUv.x * 2.7 - t * 0.25));
-  vec3 a = field(uA[0], uA[1], uA[2], uA[3], uA[4], uv, t, aspect);
-  vec3 b = field(uB[0], uB[1], uB[2], uB[3], uB[4], uv, t, aspect);
+  vec2 uv = vUv + 0.03 * vec2(sin(vUv.y * 3.1 + uWarp.x), cos(vUv.x * 2.7 + uWarp.y));
+  vec2 p = vec2(uv.x * aspect, uv.y);
+  vec3 a = field(uA[0], uA[1], uA[2], uA[3], uA[4], p);
+  vec3 b = field(uB[0], uB[1], uB[2], uB[3], uB[4], p);
   vec2 d = vec2((vUv.x - uOrigin.x) * aspect, vUv.y - uOrigin.y);
   float rad = uReveal * length(vec2(aspect, 1.0)) * 1.1;
   float m = 1.0 - smoothstep(rad - 0.22, rad, length(d));
   vec3 col = mix(b, a, m);
   col = col / (1.0 + col * 0.4);
-  float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+  float n = texture2D(uNoise, gl_FragCoord.xy / 64.0).r;
   col += (n - 0.5) * (2.0 / 255.0);
   gl_FragColor = vec4(col, 1.0);
 }`
+
+/** 四盏灯此刻的位置和画面扭动的相位（和以前写在着色器里的是同一套式子），t 是秒 */
+export function lightField(t: number, aspect: number): { p0: [number, number, number, number]; p1: [number, number, number, number]; warp: [number, number] } {
+  const TAU = Math.PI * 2
+  const wrap = (v: number) => ((v % TAU) + TAU) % TAU
+  return {
+    p0: [aspect * (0.22 + 0.10 * Math.sin(t * 0.21)), 0.80 + 0.08 * Math.cos(t * 0.17), aspect * (0.82 + 0.09 * Math.cos(t * 0.19)), 0.72 + 0.10 * Math.sin(t * 0.23)],
+    p1: [aspect * (0.30 + 0.12 * Math.cos(t * 0.13)), 0.16 + 0.09 * Math.sin(t * 0.29), aspect * (0.76 + 0.11 * Math.sin(t * 0.11)), 0.24 + 0.10 * Math.cos(t * 0.15)],
+    warp: [wrap(t * 0.30), wrap(-t * 0.25)],
+  }
+}
+
+/** 64×64 的白噪声（固定种子），给抖动查表用 */
+function noiseBytes(): Uint8Array {
+  const out = new Uint8Array(64 * 64)
+  let seed = 0x2545f491
+  for (let i = 0; i < out.length; i++) {
+    seed ^= seed << 13
+    seed ^= seed >>> 17
+    seed ^= seed << 5
+    out[i] = (seed >>> 0) & 0xff
+  }
+  return out
+}
 
 /** 调色板 → 5 个 vec3：底色 + 四盏光（亮度压暗、饱和封顶，白字在上面始终读得清）。
  *  光的亮度封在 0.36–0.5：再亮，顶上的分段标签和歌手行就掉到 4.5:1 以下——
@@ -155,14 +194,29 @@ export function StageField({ className, originRef, active = true }: { className?
 
     const uniforms = {
       uRes: gl.getUniformLocation(prog, 'uRes'),
-      uTime: gl.getUniformLocation(prog, 'uTime'),
+      uP0: gl.getUniformLocation(prog, 'uP0'),
+      uP1: gl.getUniformLocation(prog, 'uP1'),
+      uWarp: gl.getUniformLocation(prog, 'uWarp'),
       uA: gl.getUniformLocation(prog, 'uA'),
       uB: gl.getUniformLocation(prog, 'uB'),
       uReveal: gl.getUniformLocation(prog, 'uReveal'),
       uOrigin: gl.getUniformLocation(prog, 'uOrigin'),
     }
+    // 抖动用的噪声贴图：最近点采样、平铺
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, gl.createTexture())
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 64, 64, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, noiseBytes())
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+    gl.uniform1i(gl.getUniformLocation(prog, 'uNoise'), 0)
+
     const initial = paletteToUniform(useArtLightStore.getState().palette)
     const reduce = prefersReducedMotion()
+    // 画布按显示尺寸的 1/4 画；电视是几米外的一整面墙，1/4 拉满全屏看得出一格一格，给到 1/2
+    const shrink = isTvModeActive() ? 2 : 4
     const start = performance.now()
     let frame = 0
     let timer = 0
@@ -186,9 +240,12 @@ export function StageField({ className, originRef, active = true }: { className?
         reveal = 1 - (1 - k) ** 3
         if (k >= 1) state.revealFrom = -1
       }
+      const lights = lightField(t, canvas.width / canvas.height)
       gl.viewport(0, 0, canvas.width, canvas.height)
       gl.uniform2f(uniforms.uRes, canvas.width, canvas.height)
-      gl.uniform1f(uniforms.uTime, t)
+      gl.uniform4f(uniforms.uP0, ...lights.p0)
+      gl.uniform4f(uniforms.uP1, ...lights.p1)
+      gl.uniform2f(uniforms.uWarp, ...lights.warp)
       gl.uniform3fv(uniforms.uA, state.a)
       gl.uniform3fv(uniforms.uB, state.b)
       gl.uniform1f(uniforms.uReveal, reveal)
@@ -213,8 +270,8 @@ export function StageField({ className, originRef, active = true }: { className?
     }
 
     const resize = () => {
-      const w = Math.max(1, Math.round(canvas.clientWidth / 4))
-      const h = Math.max(1, Math.round(canvas.clientHeight / 4))
+      const w = Math.max(1, Math.round(canvas.clientWidth / shrink))
+      const h = Math.max(1, Math.round(canvas.clientHeight / shrink))
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w
         canvas.height = h
