@@ -99,15 +99,47 @@ function useHalfHeight(): [number, (el: HTMLElement | null) => void] {
   return [half, measure]
 }
 
+/**
+ * CSS 玻璃字边上那一圈高光（省电排法用，样式在 index.css 的 .sky-css-glass）。
+ * 从字的外形（透明度）里减去往里收了一点的外形，剩下的就是最外面一圈；涂成白的叠回去。
+ * 引用写在行内样式里：写在外链样式表里的 url(#…) 有的内核会按样式表的地址去找。
+ */
+const GLASS_RIM_ID = 'sky-glass-rim'
+const GLASS_RIM: CSSProperties = { filter: `url(#${GLASS_RIM_ID})` }
+
+function GlassRimFilter() {
+  return (
+    <svg aria-hidden="true" width="0" height="0" className="pointer-events-none absolute">
+      <filter id={GLASS_RIM_ID} x="-10%" y="-10%" width="120%" height="120%" colorInterpolationFilters="sRGB">
+        <feMorphology in="SourceAlpha" operator="erode" radius="0.7" result="inner" />
+        <feComposite in="SourceAlpha" in2="inner" operator="out" result="rim" />
+        <feColorMatrix in="rim" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.75 0" result="light" />
+        <feMerge>
+          <feMergeNode in="SourceGraphic" />
+          <feMergeNode in="light" />
+        </feMerge>
+      </filter>
+    </svg>
+  )
+}
+
 export function SkylineLyric({
   lines,
   className,
   wide = false,
+  lite = false,
 }: {
   lines: LyricLine[]
   className?: string
   /** 横屏：字大一号，两侧有地方散字 */
   wide?: boolean
+  /**
+   * 省电排法（电视盒子，不挂 LyricSmoke 的烟雾和聚光灯时用）：效果一样不少——逐字染色、光斑、两侧的字和投影、飘动都在，
+   * 只是画得省：进度每 80 毫秒走一步而不是每帧；光斑的画布按 1 倍像素、每秒 30 帧画（光斑本来就是糊的，看不出差别）；
+   * 换句只淡入淡出，不带放大和模糊。
+   * 字的玻璃质感改用 CSS 画（index.css 的 .sky-css-glass）：着色器画的那种要整屏的 WebGL
+   */
+  lite?: boolean
 }) {
   const reduce = !!useReducedMotion()
   const currentTimeSec = usePlayerStore(s => s.currentTime)
@@ -138,24 +170,25 @@ export function SkylineLyric({
   return (
     <div
       ref={stageRef}
-      className={cn('relative h-full min-h-0 w-full overflow-hidden', className)}
+      className={cn('relative h-full min-h-0 w-full overflow-hidden', lite && 'sky-css-glass', className)}
       style={vars}
       data-lyric-stage=""
       data-lyric-key={index}
       data-lyric-text={text === '♪' ? '' : text ?? ''}
       data-lyric-next={next ?? ''}
     >
-      <SkySides lines={lines} index={index} wide={wide} reduce={reduce} />
+      {lite && <GlassRimFilter />}
+      <SkySides lines={lines} index={index} wide={wide} reduce={reduce} lite={lite} />
       <AnimatePresence initial={false}>
         {text !== null && (
           <motion.div
             key={index}
             className="absolute inset-x-0 origin-center"
             style={{ top: `${CENTER}%` }}
-            initial={reduce ? false : { opacity: 0, scale: 0.55, y: '20%' }}
-            animate={{ opacity: 1, scale: 1, y: '-50%' }}
-            exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.04, y: '-85%', filter: 'blur(10px)' }}
-            transition={reduce ? { duration: 0 } : { duration: 0.6, ease: EASE }}
+            initial={reduce ? false : lite ? { opacity: 0, y: '-30%' } : { opacity: 0, scale: 0.55, y: '20%' }}
+            animate={lite ? { opacity: 1, y: '-50%' } : { opacity: 1, scale: 1, y: '-50%' }}
+            exit={reduce ? { opacity: 0 } : lite ? { opacity: 0, y: '-70%' } : { opacity: 0, scale: 1.04, y: '-85%', filter: 'blur(10px)' }}
+            transition={reduce ? { duration: 0 } : { duration: lite ? 0.4 : 0.6, ease: EASE }}
           >
             <SkyLine
               measureRef={measure}
@@ -166,6 +199,7 @@ export function SkylineLyric({
               colors={colors}
               wide={wide}
               reduce={reduce}
+              lite={lite}
             />
           </motion.div>
         )}
@@ -181,7 +215,7 @@ export function SkylineLyric({
               'sky-next absolute inset-x-0 mx-auto w-[94%] text-balance text-center font-display font-bold leading-[1.35] tracking-[0.04em] line-clamp-2',
               wide ? 'text-[clamp(18px,1.5vw,28px)]' : 'text-[clamp(15px,4vw,22px)]',
             )}
-            style={{ top: `calc(${CENTER}% + ${half + GAP}px)` }}
+            style={{ top: `calc(${CENTER}% + ${half + GAP}px)`, ...(lite ? GLASS_RIM : null) }}
             initial={reduce ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, transition: { duration: 0.2 } }}
@@ -191,7 +225,7 @@ export function SkylineLyric({
           </motion.p>
         )}
       </AnimatePresence>
-      <SkySparks stageRef={stageRef} color={colors.head} reduce={reduce} />
+      <SkySparks stageRef={stageRef} color={colors.head} reduce={reduce} lite={lite} />
     </div>
   )
 }
@@ -205,12 +239,13 @@ interface SkyLineProps {
   colors: SkyColors
   wide: boolean
   reduce: boolean
+  lite: boolean
   /** 量当前句的高度（下一句贴着它排） */
   measureRef: (el: HTMLElement | null) => void
   stageRef: RefObject<HTMLDivElement>
 }
 
-function SkyLine({ text, lines, index, colors, wide, reduce, measureRef, stageRef }: SkyLineProps) {
+function SkyLine({ text, lines, index, colors, wide, reduce, lite, measureRef, stageRef }: SkyLineProps) {
   const present = useIsPresent()
   const chars = useMemo(() => splitChars(text), [text])
   const slotCount = useMemo(() => progressSlots(chars).length, [chars])
@@ -248,7 +283,10 @@ function SkyLine({ text, lines, index, colors, wide, reduce, measureRef, stageRe
           if (!el) return
           if (i < head) {
             el.dataset.s = 'sung'
-            el.style.color = mixRgb(a, b, head > 0 ? i / head : 0)
+            const tint = mixRgb(a, b, head > 0 ? i / head : 0)
+            el.style.color = tint
+            // 同一个颜色的三个通道：CSS 画的玻璃字（.sky-css-glass）要自己配透明度
+            el.style.setProperty('--sky-c', tint.slice(4, -1))
           } else {
             el.dataset.s = i === head ? 'head' : 'todo'
             el.style.color = ''
@@ -275,14 +313,14 @@ function SkyLine({ text, lines, index, colors, wide, reduce, measureRef, stageRe
       paint()
       raf = requestAnimationFrame(loop)
     }
-    if (reduce) {
+    if (reduce || lite) {
       paint()
-      const timer = setInterval(paint, 250)
+      const timer = setInterval(paint, reduce ? 250 : 80)
       return () => clearInterval(timer)
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [chars, slotCount, lines, index, present, reduce, stageRef])
+  }, [chars, slotCount, lines, index, present, reduce, lite, stageRef])
 
   const size = wide ? 'text-[clamp(36px,3.2vw,64px)]' : 'text-[clamp(30px,8.4vw,54px)]'
   return (
@@ -305,6 +343,7 @@ function SkyLine({ text, lines, index, colors, wide, reduce, measureRef, stageRe
           key={i}
           ref={el => { charRefs.current[i] = el }}
           className="sky-char relative"
+          style={lite ? GLASS_RIM : undefined}
           data-s="todo"
         >
           {ch}
@@ -326,7 +365,7 @@ const SPARK_MAX = 48
  * 发射点本身每帧往目标挪一点（阻尼），换字、换行时光斑的源头是滑过去的，不是跳过去的。
  * 暂停或这句没在唱时不再冒新的，已经冒出来的照样飘完；减弱动态效果时不画。
  */
-function SkySparks({ stageRef, color, reduce }: { stageRef: RefObject<HTMLDivElement>; color: string; reduce: boolean }) {
+function SkySparks({ stageRef, color, reduce, lite = false }: { stageRef: RefObject<HTMLDivElement>; color: string; reduce: boolean; lite?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const colorRef = useRef(color)
   colorRef.current = color
@@ -343,13 +382,16 @@ function SkySparks({ stageRef, color, reduce }: { stageRef: RefObject<HTMLDivEle
     let pending = 0
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame)
+      // 省电排法：隔一帧画一次（每秒 30 帧）
+      if (lite && now - last < 30) return
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
       const stage = stageRef.current
       if (!stage || document.hidden) return
       const width = stage.clientWidth
       const height = stage.clientHeight
-      const dpr = Math.min(2, window.devicePixelRatio || 1)
+      // 整屏的画布每帧都要重新传给显卡：电视盒子上按 1 倍像素画，要传的只有四分之一
+      const dpr = lite ? 1 : Math.min(2, window.devicePixelRatio || 1)
       if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
         canvas.width = Math.round(width * dpr)
         canvas.height = Math.round(height * dpr)
@@ -408,14 +450,14 @@ function SkySparks({ stageRef, color, reduce }: { stageRef: RefObject<HTMLDivEle
     }
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
-  }, [reduce, stageRef])
+  }, [reduce, lite, stageRef])
 
   return <canvas ref={canvasRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" />
 }
 
 /* ---------------------------------------------------------------- 两侧散落的字 */
 
-function SkySides({ lines, index, wide, reduce }: { lines: LyricLine[]; index: number; wide: boolean; reduce: boolean }) {
+function SkySides({ lines, index, wide, reduce, lite }: { lines: LyricLine[]; index: number; wide: boolean; reduce: boolean; lite: boolean }) {
   const seed = useMemo(() => hashText(lines.map(l => l.text).join('\n')), [lines])
   const perSide = wide ? 4 : 2
   const slots = useMemo(() => sideSlots(seed, perSide), [seed, perSide])
@@ -457,7 +499,7 @@ function SkySides({ lines, index, wide, reduce }: { lines: LyricLine[]; index: n
                   transition={{ duration: reduce ? 0 : 0.6, ease: EASE }}
                 >
                   <span className="sky-word-ghost">{token}</span>
-                  <span className="sky-word-face">{token}</span>
+                  <span className="sky-word-face" style={lite ? GLASS_RIM : undefined}>{token}</span>
                 </motion.span>
               )
             })}

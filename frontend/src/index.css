@@ -637,6 +637,67 @@ a {
     text-shadow: none;
   }
 
+  /* ===== CSS 画的玻璃字（电视的歌词屏保，SkylineLyric 的 lite）=====
+     着色器里的玻璃是把身后的画面糊一遍再提亮。这里身后本来就是一片糊开的光，所以字只要半透明、上亮下暗、
+     边上一圈高光，看着就是一块磨砂玻璃——不用 WebGL，电视盒子画得动。
+     唱过的部分是染了封面色的玻璃（--sky-c 由 SkylineLyric 逐字写），正在唱的那个字从左往右染过去。
+     边上那圈高光不在这里：-webkit-text-stroke 会把字体里互相叠着的笔画轮廓也描出来（字里面全是线），
+     改由 SkylineLyric 挂的 SVG 滤镜从字的外形里抠出最外面一圈（GLASS_RIM） */
+  .sky-css-glass .sky-char {
+    /* 唱过的字有行内的 color，这里要盖过它 */
+    color: transparent !important;
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  .sky-css-glass .sky-char[data-s='todo'] {
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.8) 8%, rgb(255 255 255 / 0.34) 58%, rgb(255 255 255 / 0.56) 96%);
+  }
+
+  .sky-css-glass .sky-char[data-s='sung'] {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.5) 8%, rgb(255 255 255 / 0) 55%, rgb(255 255 255 / 0.2) 96%),
+      linear-gradient(rgb(var(--sky-c, 255 255 255) / 0.86), rgb(var(--sky-c, 255 255 255) / 0.86));
+  }
+
+  .sky-css-glass .sky-char[data-s='head'] {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.5) 8%, rgb(255 255 255 / 0) 55%, rgb(255 255 255 / 0.2) 96%),
+      linear-gradient(
+        90deg,
+        rgb(var(--sky-head) / 0.9) calc(var(--f, 0) * 112% - 12%),
+        rgb(255 255 255 / 0.46) calc(var(--f, 0) * 112%)
+      );
+  }
+
+  /* 玻璃是透的：垫在底下的霓虹光收成外面淡淡一圈，不然会从字里透上来，把玻璃染实 */
+  .sky-css-glass .sky-glow {
+    text-shadow:
+      0 0 0.3em rgb(var(--sky-glow) / 0.34),
+      0 0.05em 0.16em rgb(0 0 0 / 0.28);
+  }
+
+  .sky-css-glass .sky-next {
+    color: transparent;
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.62) 10%, rgb(255 255 255 / 0.26) 60%, rgb(255 255 255 / 0.42) 95%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    text-shadow: none;
+  }
+
+  .sky-css-glass .sky-word-face {
+    color: transparent;
+    background-image: linear-gradient(180deg, rgb(var(--sky-side) / 0.74) 8%, rgb(var(--sky-side) / 0.3) 58%, rgb(var(--sky-side) / 0.5) 96%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    text-shadow: none;
+  }
+
+  .sky-css-glass .sky-word-far .sky-word-face {
+    color: transparent;
+    background-image: linear-gradient(180deg, rgb(var(--sky-side) / 0.46) 8%, rgb(var(--sky-side) / 0.18) 58%, rgb(var(--sky-side) / 0.3) 96%);
+  }
+
   /* 两侧散落的字：横屏放在左右两翼（各占外侧 20%，给长句留出地方）的一条横带里，和歌词齐平、略低，
      往外后方斜过去，像天际屏的两边 */
   .sky-side-wide-0 {

@@ -428,8 +428,10 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
   )
   const lyrics = lyricsQuery.data
 
-  /* 电视歌词屏保：放着歌、八秒没按键（控制已经淡下去）、这首有逐句歌词——整页换成天际屏。
-     按任意键 tvIdle 变回 false，屏保淡出；淡出的那一小段里烟雾和字还挂着，不是一下子没了 */
+  /* 电视歌词屏保：放着歌、八秒没按键（控制已经淡下去）、这首有逐句歌词——整页换成全屏大字歌词。
+     不挂烟雾和聚光灯（电视盒子的显卡带不动整屏的 WebGL，画出来又糊又卡）；逐字染色、光斑、两侧的字和投影都在，
+     用的是 SkylineLyric 的省电排法。
+     按任意键 tvIdle 变回 false，屏保淡出；淡出的那一小段里字还挂着，不是一下子没了 */
   const tvSkylineOn = useSettingsStore(s => s.tvSkyline)
   const tvSky = tv && tvIdle && tvSkylineOn && !!lyrics?.lines.some(line => line.time > 0)
   const [tvSkyMounted, setTvSkyMounted] = useState(false)
@@ -1000,7 +1002,6 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
   const lyricBackdrop =
     ((layout === 'stack' || layout === 'portrait') && mobileView === 'lyrics')
     || ((layout === 'landscape' || layout === 'cards') && widePane === 'lyrics')
-    || (layout === 'tv' && tvSkyMounted)
 
   const spotlightStage = (wide: boolean) => (
     <div
@@ -1323,10 +1324,10 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
           />
         </div>
 
-        {/* 歌词屏保：盖在整页上，烟雾在最底下（lyricBackdrop）；不接焦点、不接指针 */}
+        {/* 歌词屏保：盖在整页上，底下还是播放页自己的那片光；不接焦点、不接指针 */}
         {tvSkyMounted && lyrics && (
           <div className={cn('tv-sky-fade pointer-events-none absolute inset-0 px-[56px] pb-[36px] pt-[30px]', !tvSky && 'is-out')} aria-hidden="true" data-nav-skip="">
-            <SkylineLyric lines={lyrics.lines} wide className="h-full" />
+            <SkylineLyric lines={lyrics.lines} wide lite className="h-full" />
           </div>
         )}
       </div>
@@ -1400,13 +1401,7 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.24, ease: EASE_OUT }}
       >
-        {lyricBackdrop && (
-          <LyricSmoke
-            coverUrl={lyricCover}
-            maxDpr={layout === 'tv' ? 1.5 : 2}
-            className={layout === 'tv' ? cn('tv-sky-fade', !tvSky && 'is-out') : undefined}
-          />
-        )}
+        {lyricBackdrop && <LyricSmoke coverUrl={lyricCover} />}
         {layout !== 'tabletop' && layout !== 'tv' && header}
         {body}
       </motion.div>

@@ -34,7 +34,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { oklchToRgb } from '@/lib/oklch'
-import { cn } from '@/lib/utils'
 import { usePlayerStore } from '@/store/playerStore'
 import { useArtLightStore } from '@/store/artLightStore'
 import { getAudioCurrentTime } from '@/hooks/useAudioEngine'
@@ -361,15 +360,8 @@ function loadCoverCanvas(url: string): Promise<HTMLCanvasElement | null> {
   })
 }
 
-export function LyricSmoke({ coverUrl, maxDpr = 2, className }: {
-  coverUrl?: string
-  /** 画布最多按几倍屏幕像素画。电视盒子显卡弱，1080p 上整屏 2 倍太吃力，传小一点 */
-  maxDpr?: number
-  className?: string
-}) {
+export function LyricSmoke({ coverUrl }: { coverUrl?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const maxDprRef = useRef(maxDpr)
-  maxDprRef.current = maxDpr
   const [failed, setFailed] = useState(false)
   const coverRef = useRef<{ upload: (source: HTMLCanvasElement | null) => void } | null>(null)
 
@@ -555,8 +547,8 @@ export function LyricSmoke({ coverUrl, maxDpr = 2, className }: {
     const paint = (now: number) => {
       const rect = host.getBoundingClientRect()
       if (rect.width < 2 || rect.height < 2) return
-      /* 画布按屏幕像素（最多 2 倍，电视上更少），字才清楚；烟那一遍只要 0.6 倍 */
-      const dpr = Math.min(maxDprRef.current, window.devicePixelRatio || 1)
+      /* 画布按屏幕像素（最多 2 倍），字才清楚；烟那一遍只要 0.6 倍 */
+      const dpr = Math.min(2, window.devicePixelRatio || 1)
       const fullW = Math.max(1, Math.round(rect.width * dpr))
       const fullH = Math.max(1, Math.round(rect.height * dpr))
       if (canvas.width !== fullW || canvas.height !== fullH) {
@@ -906,14 +898,9 @@ export function LyricSmoke({ coverUrl, maxDpr = 2, className }: {
     return () => { cancelled = true }
   }, [coverUrl, failed])
 
-  if (failed) {
-    // 退回 2D 的那一版；外面要淡入淡出时套一层同样垫在底下的壳，透明度才作用得到它
-    return className
-      ? <div aria-hidden="true" className={cn('pointer-events-none absolute inset-0 -z-10', className)}><LyricAtmosphere coverUrl={coverUrl} /></div>
-      : <LyricAtmosphere coverUrl={coverUrl} />
-  }
+  if (failed) return <LyricAtmosphere coverUrl={coverUrl} />
   return (
-    <div aria-hidden="true" className={cn('pointer-events-none absolute inset-0 -z-10 overflow-hidden', className)}>
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       <canvas ref={canvasRef} className="block h-full w-full" />
     </div>
   )
