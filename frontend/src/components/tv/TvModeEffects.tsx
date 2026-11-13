@@ -25,6 +25,9 @@ import { t } from '@/i18n'
 /** 电视的布局视口宽度：1080p 电视在 2 倍密度下本来就是 960 × 540 */
 const TV_VIEWPORT_WIDTH = 960
 
+/** 会弹输入法的那几种 input（checkbox、range 这些不算） */
+const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'email', 'password', 'tel', 'number'])
+
 /** 导航条上的一级入口：在这些页上按返回，先回导航条，再回首页，最后才退出 */
 export const TV_TOP_LEVEL = new Set(['/', '/search', '/recommendations', '/library', '/playlists', '/favorites', '/settings'])
 
@@ -179,6 +182,69 @@ export function TvModeEffects() {
       handle.then(h => h.remove()).catch(() => {})
     }
   }, [tv, onLogin, navigate])
+
+  /* 输入框：遥控器只是路过时不弹输入法，按确认键才开始输入。
+     不这样的话，设置页往下走每经过一个输入框就弹一次键盘，要先按返回把它收掉才能接着走。
+     做法是给文本框挂 inputmode="none"（系统就不弹键盘了），按确认时拿掉、重新聚焦一次让键盘出来；
+     焦点一离开又挂回去。 */
+  useEffect(() => {
+    if (!tv) return
+    const PARKED = 'data-tv-inputmode'
+    const isText = (el: EventTarget | null): el is HTMLInputElement | HTMLTextAreaElement =>
+      el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && TEXT_INPUT_TYPES.has(el.type))
+    const park = (el: HTMLElement) => {
+      if (el.hasAttribute('data-tv-editing') || el.hasAttribute(PARKED)) return
+      el.setAttribute(PARKED, el.getAttribute('inputmode') ?? '')
+      el.setAttribute('inputmode', 'none')
+    }
+    const unpark = (el: HTMLElement) => {
+      const previous = el.getAttribute(PARKED)
+      if (previous === null) return
+      if (previous) el.setAttribute('inputmode', previous)
+      else el.removeAttribute('inputmode')
+      el.removeAttribute(PARKED)
+    }
+    /* 焦点每挪一步，把页面上所有文本框都先挂上：等焦点真走到某个输入框时它已经是「不弹键盘」的了，
+       不用和系统抢那一下 */
+    const parkAll = () => {
+      document.querySelectorAll<HTMLElement>('input, textarea').forEach(el => { if (isText(el)) park(el) })
+    }
+    let refocusing = false
+    const onFocusIn = (e: FocusEvent) => {
+      if (isText(e.target)) park(e.target)
+      parkAll()
+    }
+    const onFocusOut = (e: FocusEvent) => {
+      if (refocusing || !isText(e.target)) return
+      e.target.removeAttribute('data-tv-editing')
+      park(e.target)
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || !isText(e.target) || e.target.hasAttribute('data-tv-editing')) return
+      // 第一下确认：开始输入。这一下不提交表单
+      e.preventDefault()
+      e.stopPropagation()
+      const el = e.target
+      el.setAttribute('data-tv-editing', '')
+      unpark(el)
+      // inputmode 换了以后要重新聚焦一次，键盘才会出来
+      refocusing = true
+      el.blur()
+      el.focus({ preventScroll: true })
+      refocusing = false
+    }
+    parkAll()
+    document.addEventListener('focusin', onFocusIn, true)
+    document.addEventListener('focusout', onFocusOut, true)
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      document.removeEventListener('focusin', onFocusIn, true)
+      document.removeEventListener('focusout', onFocusOut, true)
+      window.removeEventListener('keydown', onKeyDown, true)
+      document.querySelectorAll<HTMLElement>(`[${PARKED}]`).forEach(unpark)
+      document.querySelectorAll<HTMLElement>('[data-tv-editing]').forEach(el => el.removeAttribute('data-tv-editing'))
+    }
+  }, [tv])
 
   /* 换页：一直记着这一页焦点停在第几个元素（换页那一刻旧页已经被换掉，那时再看就晚了）；
      新页渲染出来后把焦点放进去 */

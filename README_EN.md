@@ -55,6 +55,7 @@ The same app takes a different shape on each screen. It is not the phone layout 
 - Recognises Android TVs and TV boxes and switches to a **remote-control layout**
 - The D-pad reaches every button; the focused one grows and inverts, so you always know where you are
 - A navigation rail on the left that opens when focus moves into it; OK opens, Back exits
+- Text fields open the keyboard only when you press OK, not while the remote is just passing by
 - **Lyrics screensaver**: eight seconds without a key press while music plays turns the screen into full-screen lyrics in large type that fill in as they are sung; any key brings it back
 - Works on boxes whose system WebView is as old as **Chrome 83**
 
