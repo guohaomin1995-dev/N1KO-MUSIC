@@ -1051,6 +1051,8 @@
   "browse.empty": "这里还没有内容",
   "browse.loadFailed": "没能加载出来，稍后再试",
   "browse.noSongs": "这里没有可以播放的歌",
+  "diag.display.title": "显示信息",
+  "diag.display.desc": "屏幕 {screen} · 页面 {page} · 像素比 {dpr} · 缩放 {zoom} · {engine} · 显卡 {gpu} · 着色器精度 {precision}",
   "diag.title": "播放诊断",
   "diag.none": "还没有记录到暂停。播着播着自己停了的时候，回这里看看是谁停的。",
   "diag.latest": "最近一次 {time}：{reason}，当时往后还缓冲着 {ahead} 秒",

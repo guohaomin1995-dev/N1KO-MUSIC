@@ -51,6 +51,7 @@ import {
 import { SyncSettings } from '@/components/settings/SyncSettings'
 import { ScrobbleSettings } from '@/components/settings/ScrobbleSettings'
 import { PlaybackDiagnostics } from '@/components/settings/PlaybackDiagnostics'
+import { DisplayInfo } from '@/components/settings/DisplayInfo'
 import { importListeningEvents, readListeningEvents } from '@/services/listeningHistory'
 import { capImport, parseHistoryFile } from '@/services/historyImport'
 import { clearProfileCache } from '@/services/musicbrainz'
@@ -1067,6 +1068,7 @@ export default function Settings() {
             </Row>
           )}
           <PlaybackDiagnostics />
+          <DisplayInfo />
           <Row name={t('settings.about.license')}>
             <span className="text-[15px] text-ink-2">MIT License</span>
           </Row>

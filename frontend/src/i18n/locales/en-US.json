@@ -1051,6 +1051,8 @@
   "browse.empty": "Nothing here yet",
   "browse.loadFailed": "Couldn't load this. Try again in a moment.",
   "browse.noSongs": "Nothing to play here",
+  "diag.display.title": "Display info",
+  "diag.display.desc": "Screen {screen} · page {page} · pixel ratio {dpr} · zoom {zoom} · {engine} · GPU {gpu} · shader precision {precision}",
   "diag.title": "Playback diagnostics",
   "diag.none": "No pauses recorded yet. If playback stops by itself, come back here to see what stopped it.",
   "diag.latest": "Latest at {time}: {reason}, with {ahead}s still buffered",
