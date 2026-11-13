@@ -23,7 +23,8 @@ const TooltipContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-tooltip origin-[var(--radix-tooltip-content-transform-origin)] overflow-hidden rounded-[10px] bg-ink px-2.5 py-1.5 text-[12.5px] font-medium text-ground shadow-md animate-menu-in',
+        // relative：同 dropdown-menu，老内核要有定位才报得出 z-index
+        'relative z-tooltip origin-[var(--radix-tooltip-content-transform-origin)] overflow-hidden rounded-[10px] bg-ink px-2.5 py-1.5 text-[12.5px] font-medium text-ground shadow-md animate-menu-in',
         className
       )}
       {...props}

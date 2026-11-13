@@ -37,7 +37,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      'glass z-overlay min-w-[10rem] origin-[var(--radix-dropdown-menu-content-transform-origin)] overflow-hidden rounded-[18px] p-1.5 text-ink data-[state=open]:animate-menu-in data-[state=closed]:animate-menu-out',
+      'glass relative z-overlay min-w-[10rem] origin-[var(--radix-dropdown-menu-content-transform-origin)] overflow-hidden rounded-[18px] p-1.5 text-ink data-[state=open]:animate-menu-in data-[state=closed]:animate-menu-out',
       className
     )}
     {...props}
@@ -56,7 +56,10 @@ const DropdownMenuContent = React.forwardRef<
       // 点按收起时不把焦点还给「⋯」按钮，免得按钮上留一圈焦点环（见 inputModality）
       onCloseAutoFocus={restoreFocusOnlyForKeyboard(onCloseAutoFocus)}
       className={cn(
-        'glass z-overlay min-w-[13rem] origin-[var(--radix-dropdown-menu-content-transform-origin)] overflow-hidden rounded-[18px] p-1.5 text-ink data-[state=open]:animate-menu-in data-[state=closed]:animate-menu-out',
+        /* relative 不能少：Radix 把这个元素算出来的 z-index 抄给外面那层定位用的壳。
+           老内核（电视盒子的 WebView 83）对没有定位的元素一律报 auto，壳拿不到层级，
+           菜单就被压在全屏播放页这类有层级的浮层底下——开了、焦点也进去了，就是看不见 */
+        'glass relative z-overlay min-w-[13rem] origin-[var(--radix-dropdown-menu-content-transform-origin)] overflow-hidden rounded-[18px] p-1.5 text-ink data-[state=open]:animate-menu-in data-[state=closed]:animate-menu-out',
         className
       )}
       {...props}
