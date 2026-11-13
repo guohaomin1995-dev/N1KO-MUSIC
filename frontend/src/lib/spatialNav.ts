@@ -393,7 +393,9 @@ function px(value: string): number {
 export function revealFocused(el: HTMLElement, instant = false): void {
   // 吸顶 / 固定的那几块（电视工具栏）本来就一直在视野里，滚动区不该为它们动
   if (el.closest('[data-nav-noscroll]')) return
-  const behavior: ScrollBehavior = instant || window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+  // 老内核的电视盒子（lib/legacyLayout 认出来的）带不动平滑滚动：一格一格地掉帧，比直接到位更晕
+  const slow = document.documentElement.hasAttribute('data-legacy-layout')
+  const behavior: ScrollBehavior = instant || slow || window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
   const rect = el.getBoundingClientRect()
 
   const xScroller = scrollerOf(el, 'x')

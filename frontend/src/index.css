@@ -1589,6 +1589,45 @@ html[data-tv] .song-row :is(button, a):not([data-nav-skip], [class*='rounded']):
   border-radius: 6px;
 }
 
+/* ---------- 电视盒子的显卡很弱：去掉最费的几样 ----------
+   毛玻璃（backdrop-filter）每一帧都要把身后的画面重新糊一遍；骨架屏的流光、换页的淡入各占一层合成。
+   这些在手机、平板上不起眼，在电视盒子上就是遥控器按一下、画面顿一下 */
+html[data-tv] *,
+html[data-tv] *::before,
+html[data-tv] *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* 没有了毛玻璃，原来半透明的那几块换成实底，不然身后的字会透上来 */
+html[data-tv] .glass {
+  background: oklch(var(--surface));
+}
+
+html[data-tv] [data-scrolled] > .scroll-edge,
+html[data-tv] .scroll-edge[data-scrolled],
+html[data-tv] .tab-dock::before {
+  background: oklch(var(--ground));
+}
+
+html[data-tv] .tv-np-upnext {
+  background: oklch(var(--surface) / 0.96);
+}
+
+html[data-tv] .skeleton::after {
+  display: none;
+  animation: none;
+}
+
+html[data-tv] .animate-route-in {
+  animation: none;
+}
+
+/* 封面加载出来时的淡入：一屏十几张图各占一层合成，一起淡入正好赶上换页最忙的那一下 */
+html[data-tv] img {
+  transition: none;
+}
+
 /* 菜单：电视只有 540 高，歌曲的「更多」菜单放不下；限高、里面滚（焦点项由 TvModeEffects 滚进来） */
 html[data-tv] [role='menu'] {
   max-height: var(--radix-dropdown-menu-content-available-height, 100vh);
@@ -1621,23 +1660,23 @@ html[data-tv] .tv-bump-down { animation: tv-bump-down 0.28s var(--ease-out); }
   inset: 0;
   background: oklch(var(--ground) / 0.55);
   opacity: 0;
-  transition: opacity var(--dur-3) var(--ease-out);
+  transition: opacity var(--dur-2) var(--ease-out);
 }
 
+/* 展开只动两层的透明度（压暗、面板）。原来每一项的文字各滑一段、底色各裁一段，
+   电视盒子上十几层一起动，展开一次掉一半的帧 */
 .tv-rail-bg {
   position: absolute;
   inset: 0;
   background: oklch(var(--surface-2) / 0.96);
-  box-shadow: 15px 0 40px -15px oklch(var(--shade) / 0.5), inset -1px 0 0 oklch(var(--hair));
+  box-shadow: inset -1px 0 0 oklch(var(--hair));
   opacity: 0;
-  transform: translateX(-30px);
-  transition: opacity var(--dur-3) var(--ease-out), transform 0.42s var(--ease-snappy);
+  transition: opacity var(--dur-2) var(--ease-out);
 }
 
 .tv-rail:focus-within .tv-rail-dim,
 .tv-rail:focus-within .tv-rail-bg {
   opacity: 1;
-  transform: none;
 }
 
 .tv-rail-logo {
@@ -1659,14 +1698,10 @@ html[data-tv] .tv-bump-down { animation: tv-bump-down 0.28s var(--ease-out); }
   font-weight: 450;
   color: oklch(var(--ink-3));
   opacity: 0;
-  transform: translateX(-5px);
-  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-4) var(--ease-snappy);
 }
 
 .tv-rail:focus-within .tv-rail-logo span {
   opacity: 1;
-  transform: none;
-  transition-delay: 60ms;
 }
 
 .tv-rail-list {
@@ -1696,7 +1731,6 @@ html[data-tv] .tv-bump-down { animation: tv-bump-down 0.28s var(--ease-out); }
   white-space: nowrap;
   /* 收着的时候只有图标那一截能点：不然右边透明的那一大截会挡住内容区的点击（接了鼠标的电视） */
   pointer-events: none;
-  transition: color var(--dur-1) var(--ease-out);
 }
 
 .tv-rail-item svg {
@@ -1720,7 +1754,6 @@ html[data-tv] .tv-bump-down { animation: tv-bump-down 0.28s var(--ease-out); }
   border-radius: 999px;
   background: transparent;
   clip-path: inset(0 132px 0 0 round 19px);
-  transition: clip-path 0.36s var(--ease-snappy), background-color var(--dur-2) var(--ease-out);
 }
 
 .tv-rail:focus-within .tv-rail-item::before {
@@ -1729,14 +1762,10 @@ html[data-tv] .tv-bump-down { animation: tv-bump-down 0.28s var(--ease-out); }
 
 .tv-rail-item .lbl {
   opacity: 0;
-  transform: translateX(-6px);
-  transition: opacity var(--dur-2) var(--ease-out), transform 0.36s var(--ease-snappy);
 }
 
 .tv-rail:focus-within .tv-rail-item .lbl {
   opacity: 1;
-  transform: none;
-  transition-delay: 40ms;
 }
 
 .tv-rail-item[aria-current='page'] {
