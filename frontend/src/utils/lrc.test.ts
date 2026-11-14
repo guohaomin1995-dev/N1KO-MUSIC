@@ -70,4 +70,9 @@ describe('offset 全局生效（复审 B7）', () => {
     const lines = parseLrc('[offset:1000]\n[offset:2000]\n[00:10.00]词')
     expect(lines[0].time).toBe(9_000)
   })
+
+  it('段落标记（[Verse] [Chorus]，整行只有它、没有时间）不当歌词；后面带着词的照常保留', () => {
+    const lines = parseLrc('[Verse]\n[00:33.52]Look at the stars\n[Chorus]\n[01:29.10]Your skin\n[Verse 2]\n[Pre-Chorus] Oh yeah')
+    expect(lines.map(l => l.text)).toEqual(['[Pre-Chorus] Oh yeah', 'Look at the stars', 'Your skin'])
+  })
 })

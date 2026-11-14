@@ -10,7 +10,7 @@
  * - [offset:±毫秒] 应用而不是丢弃：LRC 约定正值表示提前显示（时间戳减去偏移）；
  * - 逐字标签 <mm:ss.xx>（A2 增强）从文本里剥离；
  * - 翻译行（同一时间戳的另一种语言）作为普通行保留，顺序交给调用方；
- * - 元数据标签（[ar:] [ti:] 等）过滤；
+ * - 元数据标签（[ar:] [ti:] 等）过滤；段落标记（[Verse] [Chorus] 一类，整行只有它）过滤；
  * - 输出按时间排序，时间戳不早于 0。
  */
 
@@ -30,6 +30,13 @@ const OFFSET_TAG = /^\[offset:\s*([+-]?\d+)\s*]$/i
  */
 const META_TAG =
   /^\[(?:id|ar|ti|al|by|hash|sign|qq|total|offset|lang|length|desc|album|artist|title|author|maker|version|re|ve|encoding|file|rcv|usr|uid|msid|msas|mscv|msp|msu|cap|cta|cla|cla2|com|tag|instrument|role|track|lrcx)\s*(?::[^\]]*)?]$/i
+
+/**
+ * 段落标记：整行只有一个方括号、里面不是时间——[Verse] [Chorus] [Bridge] [Verse 1]。
+ * 有的歌词源（lrc.cx 转来的英文歌词）每段前面带一行，没有时间戳：留着的话它们全排在最前面，
+ * 第一句还没唱时屏幕上的「当前句」就是一个 [Verse]。
+ */
+const SECTION_TAG = /^\[[^\]\d][^\]]*]$/
 
 function tagToMs(min: string, sec: string, frac: string | undefined): number {
   const ms = frac === undefined
@@ -64,6 +71,7 @@ export function parseLrc(text: string): LyricLine[] {
 
     if (OFFSET_TAG.test(trimmed)) continue
     if (META_TAG.test(trimmed)) continue
+    if (SECTION_TAG.test(trimmed)) continue
 
     const times: number[] = []
     TIME_TAG.lastIndex = 0
