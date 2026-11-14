@@ -168,6 +168,16 @@ function isExcluded(el: HTMLElement): boolean {
   return !!el.closest('[data-nav-skip], [inert], [aria-hidden="true"]')
 }
 
+/**
+ * 这个元素现在接得住焦点吗。几何上挑出来的候选都过了 FOCUSABLE，但「改道」去的那几个没有：
+ * 一组选项里选中的那一项、一排里记住的 / 标了优先的那一个。它们可能正好是禁用的——
+ * 推荐页的来源标签，当前选中的那个就是 disabled（点它没有意义），把焦点交给它等于原地不动，
+ * 遥控器上就是「按下没反应、再也走不下去」。
+ */
+function canTakeFocus(el: HTMLElement): boolean {
+  return el.matches(FOCUSABLE) && !isExcluded(el) && isShown(el)
+}
+
 /** 离它最近的、本身也可聚焦的祖先（嵌套控件的「主人」） */
 function ownerOf(el: HTMLElement, scope: HTMLElement): HTMLElement | null {
   let node = el.parentElement
@@ -311,27 +321,28 @@ export function findNext(current: HTMLElement, dir: NavDir, scope: HTMLElement =
   if (gate && isHorizontal(dir) && lastOutside && lastOutside.isConnected && scope.contains(lastOutside)
     && !isExcluded(lastOutside) && isShown(lastOutside)) {
     const rect = navRect(lastOutside)
-    if (isInDirection(fromRect, rect, dir) && rect.bottom > 0 && rect.top < window.innerHeight) return lastOutside
+    if (lastOutside.matches(FOCUSABLE) && isInDirection(fromRect, rect, dir) && rect.bottom > 0 && rect.top < window.innerHeight) return lastOutside
   }
 
   const pool = contained ? all.filter(el => contained.contains(el)) : all
   const best = choose(pool, fromRect)
   if (!best) return null
 
-  // 进入一组选项（分段控件、标签）：落在选中的那一项上，不是几何上最近的那一项
+  // 进入一组选项（分段控件、标签）：落在选中的那一项上，不是几何上最近的那一项。
+  // 选中的那一项接不住焦点（禁用）时不改道，就落在几何上最近的那一项
   const options = best.closest<HTMLElement>(OPTION_SET)
   if (options && !options.contains(current)) {
     const selected = options.querySelector<HTMLElement>(SELECTED_OPTION)
-    if (selected && !isExcluded(selected) && isShown(selected)) return selected
+    if (selected && canTakeFocus(selected)) return selected
   }
 
   // 进入另一排：当前页那一项优先，其次回到这一排上次停的位置
   const target = groupOf(best)
   if (target && target !== group) {
     const preferred = target.querySelector<HTMLElement>('[data-nav-preferred]')
-    if (preferred && preferred !== current && !isExcluded(preferred) && isShown(preferred)) return preferred
+    if (preferred && preferred !== current && canTakeFocus(preferred)) return preferred
     const remembered = groupMemory.get(target)
-    if (remembered && remembered.isConnected && target.contains(remembered) && !isExcluded(remembered) && isShown(remembered)) {
+    if (remembered && remembered.isConnected && target.contains(remembered) && canTakeFocus(remembered)) {
       const rect = visibleFrom(remembered, navRect(remembered), current)
       if (rect && isInDirection(fromRect, rect, dir)) return remembered
     }

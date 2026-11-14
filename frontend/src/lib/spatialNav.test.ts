@@ -254,6 +254,23 @@ describe('找下一个', () => {
     expect(findNext($('#auto'), 'right')?.id).toBe('on')
   })
 
+  it('选中的那一项是禁用的（推荐页的来源标签）：不往它身上改道，落在几何上最近的那一项，还能接着往下走', () => {
+    mount(`
+      <button id="batch" data-rect="620,130,90,40"></button>
+      <div role="tablist">
+        <button role="tab" aria-selected="true" disabled id="all" data-rect="220,200,80,36"></button>
+        <button role="tab" aria-selected="false" id="qq" data-rect="304,200,170,36"></button>
+        <button role="tab" aria-selected="false" id="netease" data-rect="478,200,140,36"></button>
+      </div>
+      <div tabindex="0" id="row" data-rect="220,260,700,60"></div>
+    `)
+    // 以前这里返回的是禁用的 #all：focus() 落不上去，焦点留在「换一批」上动不了
+    expect(findNext($('#batch'), 'down')?.id).toBe('netease')
+    expect(findNext($('#netease'), 'down')?.id).toBe('row')
+    // 从下面上来同理
+    expect(findNext($('#row'), 'up')?.id).not.toBe('all')
+  })
+
   it('跳过 data-nav-skip 与 aria-hidden 的子树', () => {
     mount(`
       <button id="a" data-rect="0,0,100,40"></button>
