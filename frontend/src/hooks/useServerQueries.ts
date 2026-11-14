@@ -5,7 +5,7 @@
  * 提供缓存、加载状态、错误处理
  */
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { fetchExternalImage, fetchExternalText } from '@/services/externalFetch'
 import {
   useQuery,
@@ -21,6 +21,8 @@ import { useServerStore } from '@/store/serverStore'
 import { useLibraryScopeStore } from '@/store/libraryScopeStore'
 import { useLyricCacheStore } from '@/store/lyricCacheStore'
 import { parseLrc } from '@/hooks/useLyrics'
+import { foldBilingual, needsTranslation, stripTranslation } from '@/utils/lyricTranslation'
+import { lookupLyricTranslation } from '@/services/lyricTranslationLookup'
 import { mirrorFavorite } from '@/services/historySync'
 import type { ListParams, Lyrics, Song } from '@/api/types'
 import { t } from '@/i18n'
@@ -167,8 +169,8 @@ export function useSearch(query: string, options: { enabled?: boolean } = {}) {
   })
 }
 
-/** 获取歌词（优先本地缓存 > 远程歌词 > 服务器歌词）*/
-export function useLyricsQuery(
+/** 歌词原文从哪来（优先本地缓存 > 远程歌词 > 服务器歌词）。译文在外面那一层（useLyricsQuery）配 */
+function useSourceLyricsQuery(
   songId: string,
   title?: string,
   artist?: string,
@@ -192,11 +194,13 @@ export function useLyricsQuery(
 
   // 1. 优先检查本地缓存（注意：不能提前 return，需保持 hooks 调用顺序稳定）
   // 缓存分域用歌曲自己的来源（阶段 3.1）：不再跟着主库走
+  // 解析结果按文本记住：每次渲染都重新解析的话，歌词行数组每次都是新的，下游的 memo 全部落空
   const cachedLyrics = getCachedLyrics(songId, serverId)
-  const cachedLines = cachedLyrics ? parseLrc(cachedLyrics) : null
-  const cachedLyricsData = cachedLines
-    ? ({ songId, lines: cachedLines, synced: cachedLines.some(l => l.time > 0) } as Lyrics | null)
-    : null
+  const cachedLyricsData = useMemo<Lyrics | null>(() => {
+    if (!cachedLyrics) return null
+    const lines = parseLrc(cachedLyrics)
+    return { songId, lines, synced: lines.some(l => l.time > 0) }
+  }, [cachedLyrics, songId])
 
   // 2. 没有本地缓存，继续使用服务器和远程歌词
   const fetchEnabled = enabled && !!songId && !cachedLyricsData
@@ -303,6 +307,61 @@ export function useLyricsQuery(
     }
     return { ...remoteQuery, data }
   }
+}
+
+/**
+ * 获取歌词，外语歌词配上译文（设置里「显示歌词翻译」开着时）。
+ *
+ * 译文的来路，按先后：
+ * 1. 音源自带的（网易云、QQ 音乐的歌，适配器已经配在每一句上）；
+ * 2. 双语歌词文件：同一个时间戳上的原文和译文折成一行；
+ * 3. 以上都没有、又不是中文歌：到已登录的流媒体音源里找同一首歌的译文，按原文配回来。
+ *    这一步是另一条查询，不挡原文——原文先显示，译文找到了再补上。
+ *
+ * 开关关着时把译文摘掉再交出去，显示歌词的组件不用各自认开关。
+ */
+export function useLyricsQuery(
+  songId: string,
+  title?: string,
+  artist?: string,
+  album?: string,
+  path?: string,
+  duration?: number,
+  enabled = true,
+  /** 曲目所属音源。缺省回落主库（见 useSourceLyricsQuery） */
+  serverId?: string
+) {
+  const query = useSourceLyricsQuery(songId, title, artist, album, path, duration, enabled, serverId)
+  const showTranslation = useSettingsStore(s => s.lyricsTranslation)
+  const source = query.data as Lyrics | null | undefined
+
+  const folded = useMemo(() => {
+    if (!source) return source
+    const lines = foldBilingual(source.lines)
+    return lines === source.lines ? source : { ...source, lines }
+  }, [source])
+
+  const wantsLookup = showTranslation && enabled && !!title && !!folded && needsTranslation(folded.lines)
+  const lookup = useQuery({
+    queryKey: ['lyrics-translation', serverId ?? 'primary', songId, title ?? '', artist ?? '', folded?.lines.length ?? 0],
+    queryFn: () => lookupLyricTranslation(folded?.lines ?? [], { title: title ?? '', artist }, serverId),
+    enabled: wantsLookup,
+    // 一首歌找一次就够：找不到的（null）也记着，不反复去搜
+    staleTime: Infinity,
+    gcTime: 60 * 60 * 1000,
+    retry: false,
+  })
+
+  const data = useMemo(() => {
+    if (!folded) return folded
+    if (!showTranslation) {
+      const lines = stripTranslation(folded.lines)
+      return lines === folded.lines ? folded : { ...folded, lines }
+    }
+    return wantsLookup && lookup.data ? { ...folded, lines: lookup.data } : folded
+  }, [folded, showTranslation, wantsLookup, lookup.data])
+
+  return { ...query, data }
 }
 
 // ===================================================

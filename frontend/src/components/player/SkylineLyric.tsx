@@ -11,6 +11,9 @@
  *   每个字斜后方一个放大、糊开的投影。
  * - 换句：下一句往上、放大，变成当前句；旧的往上飘、糊开散掉；再下一句从下面淡进来（玻璃那一层做）。
  * - 两侧的投影随着这一句唱下去慢慢变大、变糊、淡掉（--sky-p：这一句唱了几成，每帧写在这一栏上）。
+ * - 译文（这一句有的话）：贴在当前句正下方，下一句让到它下面。和原文是一套东西——字体、字号、字距跟下一句一样，
+ *   材质是原文里「还没唱到」的那种玻璃，比下一句亮一档；不跟着进度染色（译文和原文的字对不上）。
+ *   它的玻璃是 CSS 画的（index.css 的 .sky-translation）：着色器那一层只画当前句和下一句。
  *
  * DOM 里也有这一句（逐字），给读屏、给量高度、给没有 WebGL 时兜底：
  * 玻璃画得出来时（根上有 data-glass-lyrics）这些字是透明的；画不出来就是白字 + 逐字染色 + 霓虹光。
@@ -57,6 +60,10 @@ const CENTER = 42
 const DEFAULT_HALF = 40
 /** 下一句和当前句之间的空隙 */
 const GAP = 16
+/** 译文和当前句之间的空隙（译文贴着原文，比下一句近） */
+const TRANS_GAP = 6
+/** 有译文时下一句再让开一点：原文和译文是一组，下一句是另一组 */
+const TRANS_NEXT_GAP = 8
 
 /** 类名写全（不拼字符串）：Tailwind 只保留源码里原样出现过的 @layer 类名 */
 const SIDE_CLASS = {
@@ -156,6 +163,12 @@ export function SkylineLyric({
   const index = isSynced ? currentIndex : -1
   const text = index >= 0 && index < lines.length ? cleaned[index] || '♪' : null
   const next = text !== null && index + 1 < lines.length ? cleaned[index + 1] || null : null
+  const rawTranslation = text !== null ? lines[index].translation : undefined
+  const translation = rawTranslation ? spaceCJK(cleanLyricText(rawTranslation)) || null : null
+  // 译文有多高：下一句排在它下面
+  const [transHalf, measureTranslation] = useHalfHeight()
+  const translationSpace = translation ? TRANS_GAP + transHalf * 2 + TRANS_NEXT_GAP : 0
+  const nextOffset = half + GAP + translationSpace
 
   const vars = {
     '--sky-a': colors.a,
@@ -165,6 +178,8 @@ export function SkylineLyric({
     '--sky-side': colors.side,
     '--sky-ghost': colors.ghost,
     '--sky-next': colors.next,
+    // 竖屏时两侧的字排在歌词下面：多了一行译文，它们跟着往下让（index.css 的 .sky-side-narrow-*）
+    '--sky-shift': `${translationSpace}px`,
   } as CSSProperties
 
   return (
@@ -177,7 +192,7 @@ export function SkylineLyric({
       data-lyric-text={text === '♪' ? '' : text ?? ''}
       data-lyric-next={next ?? ''}
     >
-      {lite && <GlassRimFilter />}
+      {(lite || translation !== null) && <GlassRimFilter />}
       <SkySides lines={lines} index={index} wide={wide} reduce={reduce} lite={lite} />
       <AnimatePresence initial={false}>
         {text !== null && (
@@ -205,6 +220,26 @@ export function SkylineLyric({
         )}
       </AnimatePresence>
       <AnimatePresence initial={false}>
+        {translation !== null && (
+          <motion.p
+            key={`translation-${index}`}
+            ref={measureTranslation}
+            // 字体、字重、字距、字号都和下一句一样：整页只有「当前句」和「其余」两档字
+            className={cn(
+              'sky-translation absolute inset-x-0 mx-auto w-[94%] text-balance text-center font-display font-bold leading-[1.35] tracking-[0.04em] line-clamp-2',
+              wide ? 'text-[clamp(18px,1.5vw,28px)]' : 'text-[clamp(15px,4vw,22px)]',
+            )}
+            style={{ top: `calc(${CENTER}% + ${half + TRANS_GAP}px)`, ...GLASS_RIM }}
+            initial={reduce ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            transition={reduce ? { duration: 0 } : { duration: 0.45, delay: 0.1, ease: EASE }}
+          >
+            {translation}
+          </motion.p>
+        )}
+      </AnimatePresence>
+      <AnimatePresence initial={false}>
         {next !== null && (
           <motion.p
             key={`next-${index}`}
@@ -215,7 +250,7 @@ export function SkylineLyric({
               'sky-next absolute inset-x-0 mx-auto w-[94%] text-balance text-center font-display font-bold leading-[1.35] tracking-[0.04em] line-clamp-2',
               wide ? 'text-[clamp(18px,1.5vw,28px)]' : 'text-[clamp(15px,4vw,22px)]',
             )}
-            style={{ top: `calc(${CENTER}% + ${half + GAP}px)`, ...(lite ? GLASS_RIM : null) }}
+            style={{ top: `calc(${CENTER}% + ${nextOffset}px)`, ...(lite ? GLASS_RIM : null) }}
             initial={reduce ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, transition: { duration: 0.2 } }}

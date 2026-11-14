@@ -159,6 +159,26 @@ describe('搜索与歌词', () => {
     expect(lyrics?.lines).toHaveLength(2)
     expect(lyrics?.lines[0]).toMatchObject({ time: 1000, text: '第一行' })
   })
+
+  it('getLyric 带了译文：按时间配到每一句上，没翻的句子（//）不配', async () => {
+    const adapter = new PluginAdapter({
+      serverId: 'srv', manifest: makeManifest(),
+      host: makeFakeHost({
+        search: async () => ({ isEnd: true, data: [music('s1', 'Yellow')] }),
+        getLyric: async () => ({
+          rawLrc: '[00:33.52]Look at the stars\n[00:36.26]Look how they shine for you\n[00:41.82]Yeah',
+          translation: '[by:someone]\n[00:33.52]看那星星\n[00:36.26]看它们为你闪耀\n[00:41.82]//',
+        }),
+      }),
+    })
+    await adapter.searchAll('Yellow')
+    const lyrics = await adapter.getLyrics('s1')
+    expect(lyrics?.lines).toEqual([
+      { time: 33_520, text: 'Look at the stars', translation: '看那星星' },
+      { time: 36_260, text: 'Look how they shine for you', translation: '看它们为你闪耀' },
+      { time: 41_820, text: 'Yeah' },
+    ])
+  })
 })
 
 describe('歌单', () => {

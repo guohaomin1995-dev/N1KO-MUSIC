@@ -268,6 +268,18 @@ const LyricRow = memo(function LyricRow({
           英文副歌）在这里最显眼。设计契约要求两种文字之间加细空格，
           此前唯独这里漏了。 */}
       {spaceCJK(text)}
+      {/* 译文跟着这一句一起亮、一起暗（透明度在外面这层上），字小一号、细一号 */}
+      {line.translation && (
+        <span
+          className={cn(
+            'lyric-translation block font-medium tracking-normal opacity-80',
+            // 全屏：原文的三分之二大；电视的歌词栏字本来就小，再按比例缩就看不清了，保底 13px
+            stage ? 'mt-[0.2em] text-[max(0.66em,13px)] leading-[1.4]' : 'mt-0.5 text-[0.88em] leading-[1.4]',
+          )}
+        >
+          {spaceCJK(cleanLyricText(line.translation))}
+        </span>
+      )}
     </p>
   )
 })

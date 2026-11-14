@@ -141,6 +141,7 @@ They sit **alongside** your own library: search groups results by source, the ho
 - **ReplayGain** uses the gain your server already computed
 - **Colour from the cover**: the whole interface and the full-screen player follow the current cover
 - **Lyrics fallback**: when the server has none, they are looked up by title and artist
+- **Lyric translation**: foreign-language songs show a Chinese translation under each line, in the same typeface and glass finish as the original. NetEase and QQ Music tracks use the platform's own translation; library tracks use bilingual lyric files, or the same song's translation found in your signed-in NetEase / QQ Music source
 - **True whole-library shuffle**; when the queue runs out, similar songs follow
 - **Unplugging headphones pauses at once**; plug them back within a minute and it carries on
 - Sleep timer with fade-out, 0.5–3× speed, resume where you left off
@@ -203,6 +204,7 @@ Your account has no right to play that track. X-MUSIC only plays what your accou
 | Server passwords, source sign-ins | Encrypted with a key that cannot be read out of the device, stored only on it. |
 | Listening history, stats, taste profile | This device, and your own sync service if you set one up. |
 | Lyrics / cover fallback | When the server has none, title and artist go to a lyrics API (lrc.cx by default; configurable in Settings). |
+| Lyric translation | When a foreign-language library track has no translation, its title and artist are searched in your signed-in NetEase / QQ Music source. No other translation service is involved; it can be turned off in Settings. |
 | Update check | Reads the latest version from this repository's GitHub Releases. |
 | Analytics, telemetry, crash reports | None. |
 

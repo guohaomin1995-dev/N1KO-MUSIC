@@ -99,6 +99,8 @@ interface SettingsState {
   lyricsHighlightColor: string
   /** 歌词字号大小（范围 14-32，默认 24）*/
   lyricsFontSize: number
+  /** 外语歌词下面显示中文译文（音源自带的、双语歌词文件里的、或从已登录的流媒体音源找来的） */
+  lyricsTranslation: boolean
 
   // --- 歌曲详情接口 ---
   /** 歌曲详情跳转 URL 模板 */
@@ -173,6 +175,7 @@ interface SettingsState {
   setLyricsPreferRemote: (v: boolean) => void
   setLyricsHighlightColor: (c: string) => void
   setLyricsFontSize: (size: number) => void
+  setLyricsTranslation: (v: boolean) => void
   setSongDetailTemplate: (t: string) => void
   setSongDetailPathReplace: (t: string) => void
   setTranslateTargetLang: (v: string) => void
@@ -218,6 +221,7 @@ export const useSettingsStore = create<SettingsState>()(
       lyricsPreferRemote: false,
       lyricsHighlightColor: '#2ec27e',
       lyricsFontSize: 20,
+      lyricsTranslation: true,
       songDetailTemplate: '',
       songDetailPathReplace: '',
       translateTargetLang: '英文',
@@ -267,6 +271,7 @@ export const useSettingsStore = create<SettingsState>()(
       setLyricsPreferRemote: (v) => set({ lyricsPreferRemote: v }),
       setLyricsHighlightColor: (c) => set({ lyricsHighlightColor: c }),
       setLyricsFontSize: (size) => set({ lyricsFontSize: Math.max(14, Math.min(36, size)) }),
+      setLyricsTranslation: (v) => set({ lyricsTranslation: v }),
       setSongDetailTemplate: (t) => set({ songDetailTemplate: t }),
       setSongDetailPathReplace: (t) => set({ songDetailPathReplace: t }),
       setTranslateTargetLang: (v) => set({ translateTargetLang: v }),

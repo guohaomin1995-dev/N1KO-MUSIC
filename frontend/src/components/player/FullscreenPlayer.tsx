@@ -30,7 +30,7 @@ import {
   SkipBack, SkipForward,
   Repeat, RepeatOnce, Shuffle, ArrowsDownUp,
   SpeakerHigh, SpeakerX, SpeakerLow,
-  CaretDown, DotsThree, Info, Clock, MusicNote, VinylRecord, MicrophoneStage, SteeringWheel, ShareNetwork, Moon,
+  CaretDown, DotsThree, Info, Clock, MusicNote, VinylRecord, MicrophoneStage, SteeringWheel, ShareNetwork, Moon, Translate,
   ListPlus, FileText, Queue,
 } from '@phosphor-icons/react'
 import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react'
@@ -433,6 +433,8 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
      用的是 SkylineLyric 的省电排法。
      按任意键 tvIdle 变回 false，屏保淡出；淡出的那一小段里字还挂着，不是一下子没了 */
   const tvSkylineOn = useSettingsStore(s => s.tvSkyline)
+  const lyricsTranslation = useSettingsStore(s => s.lyricsTranslation)
+  const setLyricsTranslation = useSettingsStore(s => s.setLyricsTranslation)
   const tvSky = tv && tvIdle && tvSkylineOn && !!lyrics?.lines.some(line => line.time > 0)
   const [tvSkyMounted, setTvSkyMounted] = useState(false)
   useEffect(() => {
@@ -890,6 +892,13 @@ export function FullscreenPlayer({ onExited }: { onExited?: () => void } = {}) {
         <Moon size={16} />
         {t('player.sleepTimer')}
       </DropdownMenuItem>
+      {/* 歌词翻译的开关：看歌词时就在手边（电视上遥控器也够得着），不用退出去找设置 */}
+      {!!lyrics?.lines.length && (
+        <DropdownMenuItem onClick={() => setLyricsTranslation(!lyricsTranslation)} className="gap-2">
+          <Translate size={16} />
+          {t(lyricsTranslation ? 'player.lyricTranslation.hide' : 'player.lyricTranslation.show')}
+        </DropdownMenuItem>
+      )}
       {!tv && (
         <DropdownMenuItem onClick={() => { toggleFullscreen(); setCarMode(true) }} className="gap-2">
           <SteeringWheel size={16} />

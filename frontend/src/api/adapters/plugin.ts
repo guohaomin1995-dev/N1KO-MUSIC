@@ -10,6 +10,7 @@
  */
 
 import { parseLrc } from '@/utils/lrc'
+import { attachTranslation } from '@/utils/lyricTranslation'
 import { pluginErrorCode } from '@/services/errors'
 import type {
   Album,
@@ -245,7 +246,9 @@ export class PluginAdapter implements MusicServerAdapter {
     const raw = this.rawSong({ id: songId, title, artist })
     const lyric = await this.host.call<{ rawLrc?: string; translation?: string }>('getLyric', raw)
     if (!lyric?.rawLrc) return null
-    const lines = parseLrc(lyric.rawLrc)
+    const origin = parseLrc(lyric.rawLrc)
+    // 平台自带的译文（网易云 tlyric、QQ 音乐 trans）：时间戳和原文一样，配到每一句上
+    const lines = lyric.translation ? attachTranslation(origin, parseLrc(lyric.translation)) : origin
     return { songId, lines, synced: lines.some(l => l.time > 0) }
   }
 

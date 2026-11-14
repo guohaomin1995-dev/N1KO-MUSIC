@@ -315,7 +315,7 @@ export default function Settings() {
     apiPreferServer, apiAuthToken,
     coverRemoteTemplate, coverLoadAlbum, coverLoadArtist, coverShape, playerCardMode, tvMode, tvSkyline,
     appName, splashEnabled,
-    lyricsRemoteTemplate, lyricsConfirmTemplate, lyricsUseRemote, lyricsPreferRemote, lyricsFontSize,
+    lyricsRemoteTemplate, lyricsConfirmTemplate, lyricsUseRemote, lyricsPreferRemote, lyricsFontSize, lyricsTranslation,
     songDetailTemplate, songDetailPathReplace,
     translateTargetLang, translateType,
     audioQuality, cellularAudioQuality, adaptiveQuality,
@@ -325,7 +325,7 @@ export default function Settings() {
     setApiPreferServer, setApiAuthToken,
     setCoverRemoteTemplate, setCoverLoadAlbum, setCoverLoadArtist, setCoverShape, setPlayerCardMode, setTvMode, setTvSkyline,
     setAppName, setSplashEnabled,
-    setLyricsRemoteTemplate, setLyricsConfirmTemplate, setLyricsUseRemote, setLyricsPreferRemote, setLyricsFontSize,
+    setLyricsRemoteTemplate, setLyricsConfirmTemplate, setLyricsUseRemote, setLyricsPreferRemote, setLyricsFontSize, setLyricsTranslation,
     setSongDetailTemplate, setSongDetailPathReplace,
     setTranslateTargetLang, setTranslateType,
     setAudioQuality, setCellularAudioQuality, setAdaptiveQuality,
@@ -991,6 +991,9 @@ export default function Settings() {
                 options={[16, 20, 24, 28, 32].map(size => ({ value: String(size), label: String(size) }))}
               />
             </div>
+          </Row>
+          <Row name={t('settings.lyrics.translation')} desc={t('settings.lyrics.translationDesc')}>
+            <Toggle label={t('settings.lyrics.translation')} checked={lyricsTranslation} onChange={setLyricsTranslation} />
           </Row>
           <Row name={t('settings.lyrics.useRemote')} desc={t('settings.lyrics.useRemoteDesc')}>
             <Toggle label={t('settings.lyrics.useRemote')} checked={lyricsUseRemote} onChange={setLyricsUseRemote} />
