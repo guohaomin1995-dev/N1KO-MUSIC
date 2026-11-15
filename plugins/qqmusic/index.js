@@ -939,7 +939,10 @@ function mapSong(raw) {
     vip: pay.pay_play === 1,
     /* isrc 不给：协议要求字符串，而这些接口本来就不回 ISRC，
        给个数组只会让跨源同曲匹配拿到坏形状 */
-    _mediaMid: file.media_mid || raw.mid,
+    /* 取流文件名用的是媒体文件 id（media_mid），不是歌曲 mid——两者常常不同。
+       列表接口没给 file 时先留空，取流时再查（见 songFiles），不能拿歌曲 mid 硬拼：CDN 会回 404 */
+    _mediaMid: file.media_mid || undefined,
+    _files: fileAvailability(file),
     /* 收藏 / 加歌这类写接口要的是数字 songId 和 songType，不是 mid */
     _songId: raw.id !== undefined ? String(raw.id) : (raw.songid !== undefined ? String(raw.songid) : undefined),
     _songType: typeof raw.type === 'number' ? raw.type : 0,
@@ -1006,6 +1009,71 @@ var QUALITY_FILE = {
   medium: { s: 'M500', e: '.mp3' },
   high: { s: 'M800', e: '.mp3' },
   lossless: { s: 'F000', e: '.flac' },
+}
+
+/** 音质从高到低；要的那档没有文件就往下降 */
+var QUALITY_ORDER = ['lossless', 'high', 'medium', 'low']
+
+/** 这首歌各档音质有没有文件（file.size_* 为 0 就是没有）；接口没给大小时是 undefined（不知道） */
+function fileAvailability(file) {
+  if (!file) return undefined
+  var keys = ['size_96aac', 'size_128mp3', 'size_320mp3', 'size_flac']
+  if (!keys.some(function (k) { return file[k] !== undefined })) return undefined
+  return {
+    low: Number(file.size_96aac) > 0,
+    medium: Number(file.size_128mp3) > 0,
+    high: Number(file.size_320mp3) > 0,
+    lossless: Number(file.size_flac) > 0,
+  }
+}
+
+/**
+ * 实际去取哪一档：要的那档有文件就用它；没有就往下找最近的一档，再没有往上找；
+ * 不知道有哪些文件时照要的来。QQ 的取流接口不管文件在不在都会给地址，要了不存在的档 CDN 就回 404。
+ */
+function pickQuality(quality, files) {
+  var wanted = QUALITY_FILE[quality] ? quality : 'medium'
+  if (!files) return wanted
+  var at = QUALITY_ORDER.indexOf(wanted)
+  for (var i = at; i < QUALITY_ORDER.length; i++) if (files[QUALITY_ORDER[i]]) return QUALITY_ORDER[i]
+  for (var j = at - 1; j >= 0; j--) if (files[QUALITY_ORDER[j]]) return QUALITY_ORDER[j]
+  return wanted
+}
+
+/*
+ * 歌曲 mid → 媒体文件 id 和有哪些音质。宿主手里的条目不一定带着 _mediaMid：App 重启后从播放队列恢复的歌
+ * 只剩 { platform, id }（插件私有字段只在内存里缓存），以前就直接拿歌曲 mid 拼文件名，CDN 回 404，
+ * 播放器报 media error 4、换哪首 QQ 的歌都放不了。
+ * 先查歌曲详情（匿名可用），不行再按 mid 搜一次；查到的记住，查不到的不记（下次再试）。
+ */
+var SONG_FILE_CACHE_MAX = 500
+var songFileCache = new Map()
+
+async function songFiles(musicItem) {
+  var mid = String((musicItem && musicItem.id) || '')
+  if (musicItem && musicItem._mediaMid) return { mediaMid: musicItem._mediaMid, files: musicItem._files }
+  if (songFileCache.has(mid)) return songFileCache.get(mid)
+  var found = null
+  try {
+    var data = await cgi('music.pf_song_detail_svr', 'get_song_detail_yqq', { song_mid: mid })
+    var file = data && data.track_info && data.track_info.file
+    if (file && file.media_mid) found = { mediaMid: String(file.media_mid), files: fileAvailability(file) }
+  } catch (e) {
+    found = null
+  }
+  if (!found) {
+    try {
+      // 不能用 this：沙箱是非绑定调用（见 plugins/test/sandbox-call.test.mjs）
+      var hit = await module.exports.getMusicInfo({ id: mid })
+      if (hit && hit._mediaMid) found = { mediaMid: hit._mediaMid, files: hit._files }
+    } catch (e) {
+      found = null
+    }
+  }
+  if (!found) return { mediaMid: mid, files: undefined }
+  songFileCache.set(mid, found)
+  if (songFileCache.size > SONG_FILE_CACHE_MAX) songFileCache.delete(songFileCache.keys().next().value)
+  return found
 }
 
 /** 流地址有效期：vkey 经验值 1 小时（过期由宿主重取兜底） */
@@ -1372,9 +1440,9 @@ module.exports = {
   /* ---------- 取流（vkey.GetVkey.UrlGetVkey + CDN 拼接） ---------- */
   async getMediaSource(musicItem, quality) {
     var guid = await ensureGuid(env)
-    var file = QUALITY_FILE[quality] || QUALITY_FILE.medium
-    var mediaMid = musicItem._mediaMid || musicItem.id
-    var filename = file.s + mediaMid + file.e
+    var song = await songFiles(musicItem)
+    var file = QUALITY_FILE[pickQuality(quality, song.files)]
+    var filename = file.s + song.mediaMid + file.e
     var cred = currentCredentials()
     var data = await cgi('music.vkey.GetVkey', 'UrlGetVkey', {
       uin: (cred && cred.str_musicid) || '0',
