@@ -1670,6 +1670,13 @@ export function useAudioEngine() {
         })
         usePlayerStore.getState().setStreamBuffering(false)
         persistListeningSession()
+        /*
+         * 恢复次数用完了，这条流已经错死。和别的「失败停下」分支一样置 needsReloadOnPlay：
+         * 不然之后按播放只是把 isPlaying 翻成 true，元素没有可放的数据（readyState 0），
+         * 界面停在「播放中 0:00」再也不动——真机上冷启动后第一次取流出错就是这样，
+         * 暂停再播放也救不回来，只能切歌。
+         */
+        needsReloadOnPlay = true
         notePauseReason('error', `media error ${rawCode}`)
         usePlayerStore.getState().pause()
       }

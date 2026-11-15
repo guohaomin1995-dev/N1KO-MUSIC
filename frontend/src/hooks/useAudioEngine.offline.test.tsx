@@ -206,6 +206,21 @@ describe('断网暂停、联网续播（F5，引擎级）', () => {
     expect(reloadCurrent).toHaveBeenCalled()
   })
 
+  it('在线：恢复次数用完、报错停下之后，点播放走重载（不是停在「播放中 0:00」干瞪眼）', { timeout: 20_000 }, async () => {
+    const el = await bootAndPlay()
+    // 在线时的媒体错误会先自己恢复几次（每次隔一会儿重载）；一直出错，直到它放弃、停下来
+    for (let i = 0; i < 6 && usePlayerStore.getState().isPlaying; i++) {
+      fireAudioError(el, 4)
+      await act(async () => { await new Promise(r => setTimeout(r, 1300)) })
+    }
+    expect(usePlayerStore.getState().isPlaying, '恢复次数用完后应该停下').toBe(false)
+    expect(reloadCurrent, '停下之前不该动用「按播放重载」').not.toHaveBeenCalled()
+
+    act(() => { usePlayerStore.getState().resume() })
+    await act(async () => { await Promise.resolve() })
+    expect(reloadCurrent).toHaveBeenCalled()
+  })
+
   it('切歌（effect cleanup）后 online 不再触发旧监听', { timeout: 20_000 }, async () => {
     const el = await bootAndPlay()
     setOnLine(false)
