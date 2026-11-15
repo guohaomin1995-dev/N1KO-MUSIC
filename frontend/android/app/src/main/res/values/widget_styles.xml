@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        玻璃底那张图怎么铺。Android 12 以前桌面不会替我们裁圆角，图是按小部件大小画好圆角的，原样拉满；
+        Android 12 起（values-v31）图是一张没有圆角的糊图，铺满后由桌面按真实大小裁圆角。
+    -->
+    <style name="WidgetGlass">
+        <item name="android:scaleType">fitXY</item>
+    </style>
+
+    <!-- 小部件按钮的中转页：全透明、没有标题栏、没有进出动画、不压暗后面的桌面 -->
+    <style name="WidgetTrampoline" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+</resources>

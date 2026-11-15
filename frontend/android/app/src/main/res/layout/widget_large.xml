@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    大号小部件，4×2：左边封面（正方形，跟着高度走），右边歌名歌手和收藏、进度条和时间、一排按钮。
+    窄了封面跟着缩、再窄不放封面；矮了去掉时间那一行、按钮收小一号（WidgetLayouts 算，WidgetRenderer 改）。
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_outline"
+    android:clipToOutline="true">
+
+    <!-- 玻璃底三层，见 widget_small -->
+    <ImageView
+        android:id="@+id/widget_bg"
+        style="@style/WidgetGlass"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:src="@drawable/widget_glass_default" />
+
+    <ImageView
+        android:id="@+id/widget_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_scrim" />
+
+    <ImageView
+        android:id="@+id/widget_sheen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_sheen" />
+
+    <LinearLayout
+        android:id="@+id/widget_open"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="@dimen/widget_padding">
+
+        <!--
+            宽高都是 wrap_content：正方形的边长 = 可用的高、可用的宽、widget_cover_max（窄的排法会再调小）三者里最小的。
+            所以封面位图和占位图本身都要比 widget_cover_max 大，不然会按它们自己的大小缩小。
+            fitXY：框本来就是正方形，位图正好铺满；占位图按框的大小画，中间的音符保持原大，不跟着缩。
+            和右边的间距放在封面自己身上：不放封面时间距跟着没了。
+            圆角是这个 ImageView 自己裁的（背景给轮廓 + clipToOutline），封面位图不用带圆角。
+        -->
+        <ImageView
+            android:id="@+id/widget_cover"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/widget_gap"
+            android:adjustViewBounds="true"
+            android:background="@drawable/widget_cover_outline"
+            android:clipToOutline="true"
+            android:contentDescription="@string/widget_cover"
+            android:foreground="@drawable/widget_cover_edge"
+            android:maxWidth="@dimen/widget_cover_max"
+            android:maxHeight="@dimen/widget_cover_max"
+            android:scaleType="fitXY"
+            android:src="@drawable/widget_cover_placeholder" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/widget_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif-medium"
+                        android:singleLine="true"
+                        android:shadowColor="#8C000000"
+                        android:shadowDy="1"
+                        android:shadowRadius="4"
+                        android:text="@string/widget_idle_title"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="@dimen/widget_title"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/widget_artist"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="end"
+                        android:shadowColor="#8C000000"
+                        android:shadowDy="1"
+                        android:shadowRadius="4"
+                        android:singleLine="true"
+                        android:text="@string/widget_idle_hint"
+                        android:textColor="#CCFFFFFF"
+                        android:textSize="@dimen/widget_artist" />
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/widget_heart"
+                    android:layout_width="@dimen/widget_heart"
+                    android:layout_height="@dimen/widget_heart"
+                    android:layout_marginEnd="-6dp"
+                    android:background="@drawable/widget_press"
+                    android:contentDescription="@string/widget_favorite"
+                    android:padding="@dimen/widget_heart_pad"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/widget_ic_heart" />
+            </LinearLayout>
+
+            <!-- 把进度条和按钮推到底下 -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <!-- 进度条、时间、按钮都固定从左到右（进度条和时间一起，不能只翻一个） -->
+            <ProgressBar
+                android:id="@+id/widget_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/widget_progress"
+                android:layoutDirection="ltr"
+                android:max="1000"
+                android:maxHeight="@dimen/widget_progress"
+                android:minHeight="@dimen/widget_progress"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_progress" />
+
+            <LinearLayout
+                android:id="@+id/widget_time_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:layoutDirection="ltr"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_elapsed"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFeatureSettings="tnum"
+                    android:shadowColor="#8C000000"
+                    android:shadowDy="1"
+                    android:shadowRadius="3"
+                    android:singleLine="true"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="@dimen/widget_time" />
+
+                <TextView
+                    android:id="@+id/widget_duration"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
+                    android:shadowColor="#8C000000"
+                    android:shadowDy="1"
+                    android:shadowRadius="3"
+                    android:singleLine="true"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="@dimen/widget_time" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:gravity="center_vertical"
+                android:layoutDirection="ltr"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:id="@+id/widget_prev_box"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/widget_prev"
+                        android:layout_width="@dimen/widget_button"
+                        android:layout_height="@dimen/widget_button"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_press"
+                        android:contentDescription="@string/widget_previous"
+                        android:padding="@dimen/widget_button_pad"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/widget_ic_prev" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/widget_play"
+                        android:layout_width="@dimen/widget_play"
+                        android:layout_height="@dimen/widget_play"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_play_bg"
+                        android:contentDescription="@string/widget_play"
+                        android:padding="@dimen/widget_play_pad"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/widget_ic_play" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/widget_next_box"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/widget_next"
+                        android:layout_width="@dimen/widget_button"
+                        android:layout_height="@dimen/widget_button"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_press"
+                        android:contentDescription="@string/widget_next"
+                        android:padding="@dimen/widget_button_pad"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/widget_ic_next" />
+                </FrameLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

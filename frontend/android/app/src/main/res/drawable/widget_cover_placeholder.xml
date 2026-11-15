@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    没有封面时占着封面的位置：中间一个音符（暗底和描边是封面那个 ImageView 自己的）。
+    要有固定的宽高（布局按它的比例排成正方形），而且要比 widget_cover_max 大：框的大小由可用空间和 maxWidth 决定，不能被它自己的大小限住
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <size
+                android:width="480dp"
+                android:height="480dp" />
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+    <item
+        android:width="44dp"
+        android:height="44dp"
+        android:drawable="@drawable/widget_ic_note"
+        android:gravity="center" />
+</layer-list>

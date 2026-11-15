@@ -39,6 +39,41 @@
             </intent-filter>
         </activity>
 
+        <!--
+            桌面小部件（widget 包）。两个 provider 是桌面看得到的入口，必须 exported；
+            按钮的广播和中转页只有自己发得出去，不对外。
+            中转页全透明、不接触摸、不进最近任务、不和主界面同一个任务栈（见 WidgetActionActivity）。
+        -->
+        <receiver
+            android:name=".widget.SmallWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_small_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_small_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.LargeWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_large_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_large_info" />
+        </receiver>
+        <receiver android:name=".widget.WidgetActionReceiver" android:exported="false" />
+        <!-- 中转页没有界面：转屏、改字号这些自己接着（不声明的话系统会重建它，按键动作就发了两遍） -->
+        <activity
+            android:name=".widget.WidgetActionActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection|touchscreen|colorMode|mcc|mnc"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/WidgetTrampoline" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

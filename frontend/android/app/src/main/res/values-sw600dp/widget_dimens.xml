@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 平板：同样是 2×2 / 4×2，一格比手机大一半以上，字和按钮跟着放大 -->
+<resources>
+    <dimen name="widget_padding">18dp</dimen>
+    <dimen name="widget_gap">18dp</dimen>
+    <dimen name="widget_title">21sp</dimen>
+    <dimen name="widget_artist">15sp</dimen>
+    <dimen name="widget_brand">12sp</dimen>
+    <dimen name="widget_time">12sp</dimen>
+    <dimen name="widget_progress">4dp</dimen>
+    <dimen name="widget_button">56dp</dimen>
+    <dimen name="widget_button_pad">12dp</dimen>
+    <dimen name="widget_play">60dp</dimen>
+    <dimen name="widget_play_pad">14dp</dimen>
+    <dimen name="widget_heart">46dp</dimen>
+    <dimen name="widget_heart_pad">9dp</dimen>
+    <dimen name="widget_padding_compact">12dp</dimen>
+    <dimen name="widget_button_compact">44dp</dimen>
+    <dimen name="widget_button_pad_compact">10dp</dimen>
+    <dimen name="widget_play_compact">48dp</dimen>
+    <dimen name="widget_play_pad_compact">11dp</dimen>
+    <dimen name="widget_cover_max">240dp</dimen>
+    <dimen name="widget_cover_min">80dp</dimen>
+    <dimen name="widget_cover_radius">18dp</dimen>
+</resources>

@@ -99,6 +99,8 @@ interface SettingsState {
   lyricsHighlightColor: string
   /** 歌词字号大小（范围 14-32，默认 24）*/
   lyricsFontSize: number
+  /** 桌面小部件（安卓）的背景透明度：0 不透明，100 全透明（只剩字和按钮浮在壁纸上） */
+  widgetTransparency: number
   /** 外语歌词下面显示中文译文（音源自带的、双语歌词文件里的、或从已登录的流媒体音源找来的） */
   lyricsTranslation: boolean
 
@@ -176,6 +178,7 @@ interface SettingsState {
   setLyricsHighlightColor: (c: string) => void
   setLyricsFontSize: (size: number) => void
   setLyricsTranslation: (v: boolean) => void
+  setWidgetTransparency: (v: number) => void
   setSongDetailTemplate: (t: string) => void
   setSongDetailPathReplace: (t: string) => void
   setTranslateTargetLang: (v: string) => void
@@ -222,6 +225,7 @@ export const useSettingsStore = create<SettingsState>()(
       lyricsHighlightColor: '#2ec27e',
       lyricsFontSize: 20,
       lyricsTranslation: true,
+      widgetTransparency: 15,
       songDetailTemplate: '',
       songDetailPathReplace: '',
       translateTargetLang: '英文',
@@ -272,6 +276,7 @@ export const useSettingsStore = create<SettingsState>()(
       setLyricsHighlightColor: (c) => set({ lyricsHighlightColor: c }),
       setLyricsFontSize: (size) => set({ lyricsFontSize: Math.max(14, Math.min(36, size)) }),
       setLyricsTranslation: (v) => set({ lyricsTranslation: v }),
+      setWidgetTransparency: (v) => set({ widgetTransparency: Math.max(0, Math.min(100, Math.round(v))) }),
       setSongDetailTemplate: (t) => set({ songDetailTemplate: t }),
       setSongDetailPathReplace: (t) => set({ songDetailPathReplace: t }),
       setTranslateTargetLang: (v) => set({ translateTargetLang: v }),

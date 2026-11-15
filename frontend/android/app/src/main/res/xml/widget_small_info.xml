@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    最小宽高按小米小部件规范给的 dp（2×2 是 110×110，4×2 是 300×110），别家桌面按它折算格子；
+    targetCell* 是 Android 12 以后直接说占几格。updatePeriodMillis 为 0：内容由应用推，不用系统定时叫醒。
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_small_desc"
+    android:initialLayout="@layout/widget_small"
+    android:minHeight="110dp"
+    android:minResizeHeight="48dp"
+    android:minResizeWidth="110dp"
+    android:minWidth="110dp"
+    android:previewImage="@drawable/widget_small_preview"
+    android:previewLayout="@layout/widget_small"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

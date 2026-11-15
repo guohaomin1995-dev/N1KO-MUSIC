@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_small_label">X-MUSIC · 播放控制</string>
+    <string name="widget_large_label">X-MUSIC · 正在播放</string>
+    <string name="widget_small_desc">歌名、歌手、切歌、播放暂停、收藏</string>
+    <string name="widget_large_desc">封面、进度条，以及切歌、播放暂停、收藏</string>
+    <string name="widget_idle_title">X-MUSIC</string>
+    <string name="widget_idle_hint">点一下，挑首歌</string>
+    <string name="widget_play">播放</string>
+    <string name="widget_pause">暂停</string>
+    <string name="widget_next">下一首</string>
+    <string name="widget_previous">上一首</string>
+    <string name="widget_favorite">收藏</string>
+    <string name="widget_unfavorite">取消收藏</string>
+    <string name="widget_cover">封面</string>
+</resources>

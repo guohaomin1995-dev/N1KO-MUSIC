@@ -9,6 +9,8 @@ import java.io.IOException;
 
 import com.getcapacitor.BridgeActivity;
 
+import cn.baogutang.musicstreampro.widget.HomeWidgetPlugin;
+
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -17,6 +19,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(GalleryPlugin.class);
         registerPlugin(AppUpdaterPlugin.class);
         registerPlugin(TvModePlugin.class);
+        registerPlugin(HomeWidgetPlugin.class);
         CoverCache.init(getCacheDir());
         try {
             WebDavProxy.ensureStarted();

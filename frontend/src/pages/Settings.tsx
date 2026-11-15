@@ -52,6 +52,8 @@ import { SyncSettings } from '@/components/settings/SyncSettings'
 import { ScrobbleSettings } from '@/components/settings/ScrobbleSettings'
 import { PlaybackDiagnostics } from '@/components/settings/PlaybackDiagnostics'
 import { DisplayInfo } from '@/components/settings/DisplayInfo'
+import { WidgetSettings } from '@/components/settings/WidgetSettings'
+import { widgetSupported } from '@/services/homeWidget'
 import { importListeningEvents, readListeningEvents } from '@/services/listeningHistory'
 import { capImport, parseHistoryFile } from '@/services/historyImport'
 import { clearProfileCache } from '@/services/musicbrainz'
@@ -969,6 +971,9 @@ export default function Settings() {
             </select>
           </Row>
         </Section>
+
+        {/* 桌面小部件：只有安卓手机、平板有桌面（电视没有） */}
+        {widgetSupported && !tv && <WidgetSettings />}
 
         {/* 歌词外观 */}
         <Section title={t('settings.lyrics')}>

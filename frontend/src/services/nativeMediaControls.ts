@@ -14,6 +14,7 @@ import { isNativePlatform } from '@/lib/platform'
 import { notePauseReason } from '@/lib/playbackTrail'
 import { useSettingsStore } from '@/store/settingsStore'
 import { usePlaybackCover } from '@/hooks/usePlaybackCover'
+import { coversIdentity, songKey } from '@/utils/coverIdentity'
 
 /** 原生端报上来的一次按键：message 是按键名，拖动进度时带 position（秒） */
 interface RemoteEvent {
@@ -21,7 +22,7 @@ interface RemoteEvent {
   position?: number
 }
 
-function togglePlayRemote() {
+export function togglePlayRemote() {
   const s = usePlayerStore.getState()
   if (s.isPlaying) {
     notePauseReason('remote', 'toggle')
@@ -31,45 +32,24 @@ function togglePlayRemote() {
   }
 }
 
-const songKey = (song: { serverId?: string; id: string } | null) => (song ? `${song.serverId ?? ''}:${song.id}` : null)
-
-/**
- * 封面列表的指纹。data: 图片有几百 KB，拿长度和中间一段比就够了；
- * 服务器封面地址每次生成都带新的随机鉴权参数（t / s），比之前先去掉，不然同一张图也算「变了」
- */
-function coversIdentity(urls: string[]): string {
-  return urls
-    .map(url => {
-      if (url.startsWith('data:') || url.startsWith('blob:')) return `${url.length}:${url.slice(32, 96)}`
-      let plain = url
-      try {
-        plain = decodeURIComponent(url)
-      } catch {
-        // 解不开就按原样比
-      }
-      return plain.replace(/[?&](t|s)=[^&]*/g, '')
-    })
-    .join('|')
-}
-
 /** 256 封面：插件会把位图两次塞进 MediaSession metadata，太大会撞 Binder 事务上限 */
 const NOTIFICATION_COVER = 256
 
-/** data: / blob: 图片缩成 256 的 JPEG 再给原生：原图可能好几 MB */
-function shrinkInline(url: string): Promise<string | null> {
+/** data: / blob: 图片缩成小的 JPEG（默认 256）再给原生：原图可能好几 MB */
+function shrinkInline(url: string, size: number): Promise<string | null> {
   return new Promise(resolve => {
     const img = new Image()
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas')
-        canvas.width = NOTIFICATION_COVER
-        canvas.height = NOTIFICATION_COVER
+        canvas.width = size
+        canvas.height = size
         const ctx = canvas.getContext('2d')
         if (!ctx || !img.naturalWidth) return resolve(null)
-        const scale = Math.max(NOTIFICATION_COVER / img.naturalWidth, NOTIFICATION_COVER / img.naturalHeight)
+        const scale = Math.max(size / img.naturalWidth, size / img.naturalHeight)
         const w = img.naturalWidth * scale
         const h = img.naturalHeight * scale
-        ctx.drawImage(img, (NOTIFICATION_COVER - w) / 2, (NOTIFICATION_COVER - h) / 2, w, h)
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h)
         resolve(canvas.toDataURL('image/jpeg', 0.86))
       } catch {
         resolve(null)
@@ -80,12 +60,12 @@ function shrinkInline(url: string): Promise<string | null> {
   })
 }
 
-/** 按播放条的顺序挑第一张能用的：网络地址交给原生去下，页面里的图先缩小 */
-async function notificationCover(urls: string[]): Promise<string> {
+/** 按播放条的顺序挑第一张能用的：网络地址交给原生去下，页面里的图先缩小（桌面小部件也用这个，要大一号） */
+export async function notificationCover(urls: string[], size = NOTIFICATION_COVER): Promise<string> {
   for (const url of urls) {
     if (/^https?:\/\//i.test(url)) return url
     if (url.startsWith('data:') || url.startsWith('blob:')) {
-      const small = await shrinkInline(url)
+      const small = await shrinkInline(url, size)
       if (small) return small
     }
   }
@@ -93,7 +73,7 @@ async function notificationCover(urls: string[]): Promise<string> {
 }
 
 /** 上一首：播放超过 3 秒重播当前歌曲（与 PlayerBar 行为一致） */
-function prevWithRestart() {
+export function prevWithRestart() {
   const state = usePlayerStore.getState()
   if (state.currentTime > 3) {
     seekHowl(0)

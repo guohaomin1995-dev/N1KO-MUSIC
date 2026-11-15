@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 封面的外形：圆角轮廓（封面开了 clipToOutline），图没加载出来时是一块暗底 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="@dimen/widget_cover_radius" />
+    <solid android:color="#33000000" />
+</shape>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小部件的尺寸（手机）。平板的格子大得多，另有一套在 values-sw600dp -->
+<resources>
+    <dimen name="widget_radius">24dp</dimen>
+    <dimen name="widget_padding">14dp</dimen>
+    <dimen name="widget_gap">14dp</dimen>
+    <dimen name="widget_title">16sp</dimen>
+    <dimen name="widget_artist">12sp</dimen>
+    <dimen name="widget_brand">10sp</dimen>
+    <dimen name="widget_time">10sp</dimen>
+    <dimen name="widget_progress">3dp</dimen>
+    <!-- 按钮：外圈多大、图标离外圈多远（图标 = 外圈 - 两倍留白） -->
+    <dimen name="widget_button">44dp</dimen>
+    <dimen name="widget_button_pad">9dp</dimen>
+    <dimen name="widget_play">46dp</dimen>
+    <dimen name="widget_play_pad">10dp</dimen>
+    <dimen name="widget_heart">36dp</dimen>
+    <dimen name="widget_heart_pad">7dp</dimen>
+    <!-- 矮的大号、窄的方块用的小一号按钮和留白（Android 12 起才能临时改大小） -->
+    <dimen name="widget_padding_compact">10dp</dimen>
+    <dimen name="widget_button_compact">36dp</dimen>
+    <dimen name="widget_button_pad_compact">8dp</dimen>
+    <dimen name="widget_play_compact">38dp</dimen>
+    <dimen name="widget_play_pad_compact">9dp</dimen>
+    <!-- 大号的封面最大多大；窄到放不下 widget_cover_min 就不放封面 -->
+    <dimen name="widget_cover_max">168dp</dimen>
+    <dimen name="widget_cover_min">64dp</dimen>
+    <dimen name="widget_cover_radius">14dp</dimen>
+</resources>

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    小号小部件，方块（2×2）：上面一行是字标和收藏，中间歌名歌手，下面一排上一首 / 播放暂停 / 下一首。
+    格子矮的时候换 widget_small_short，只有一行高时换 widget_small_wide（怎么挑见 WidgetLayouts）。
+    根节点用系统的 background 这个 id、开 clipToOutline：Android 12 以后由桌面按小部件的真实大小裁圆角
+    （桌面报给我们的大小不准，荣耀平板上差了近一倍，自己按报的大小画圆角会被拉虚）。
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_outline"
+    android:clipToOutline="true">
+
+    <!--
+        玻璃底三层：糊开的封面（位图，WidgetRenderer 设）、一层压暗、一层矢量的反光和描边。
+        封面和反光的透明度跟着设置走；压暗那层反过来，越透越深一点，壁纸再亮字也看得清。
+    -->
+    <ImageView
+        android:id="@+id/widget_bg"
+        style="@style/WidgetGlass"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:src="@drawable/widget_glass_default" />
+
+    <ImageView
+        android:id="@+id/widget_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_scrim" />
+
+    <ImageView
+        android:id="@+id/widget_sheen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_sheen" />
+
+    <LinearLayout
+        android:id="@+id/widget_open"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/widget_padding"
+        android:paddingTop="10dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.16"
+                android:shadowColor="#8C000000"
+                android:shadowDy="1"
+                android:shadowRadius="4"
+                android:singleLine="true"
+                android:text="X-MUSIC"
+                android:textColor="#B3FFFFFF"
+                android:textSize="@dimen/widget_brand"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/widget_heart"
+                android:layout_width="@dimen/widget_heart"
+                android:layout_height="@dimen/widget_heart"
+                android:background="@drawable/widget_press"
+                android:contentDescription="@string/widget_favorite"
+                android:padding="@dimen/widget_heart_pad"
+                android:scaleType="fitCenter"
+                android:src="@drawable/widget_ic_heart" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="vertical"
+            android:paddingEnd="6dp">
+
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="2"
+                android:shadowColor="#8C000000"
+                android:shadowDy="1"
+                android:shadowRadius="4"
+                android:text="@string/widget_idle_title"
+                android:textColor="#FFFFFFFF"
+                android:textSize="@dimen/widget_title"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:shadowColor="#8C000000"
+                android:shadowDy="1"
+                android:shadowRadius="4"
+                android:singleLine="true"
+                android:text="@string/widget_idle_hint"
+                android:textColor="#CCFFFFFF"
+                android:textSize="@dimen/widget_artist" />
+        </LinearLayout>
+
+        <!-- 外面这层跟着语言的方向留白；里面的按钮永远从左到右：上一首在左、下一首在右 -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:paddingEnd="6dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:layoutDirection="ltr"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:id="@+id/widget_prev_box"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/widget_prev"
+                        android:layout_width="@dimen/widget_button"
+                        android:layout_height="@dimen/widget_button"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_press"
+                        android:contentDescription="@string/widget_previous"
+                        android:padding="@dimen/widget_button_pad"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/widget_ic_prev" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/widget_play"
+                        android:layout_width="@dimen/widget_play"
+                        android:layout_height="@dimen/widget_play"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_play_bg"
+                        android:contentDescription="@string/widget_play"
+                        android:padding="@dimen/widget_play_pad"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/widget_ic_play" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/widget_next_box"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <ImageView
+                        android:id="@+id/widget_next"
+                        android:layout_width="@dimen/widget_button"
+                        android:layout_height="@dimen/widget_button"
+                        android:layout_gravity="center"
+                        android:background="@drawable/widget_press"
+                        android:contentDescription="@string/widget_next"
+                        android:padding="@dimen/widget_button_pad"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/widget_ic_next" />
+                </FrameLayout>
+            </LinearLayout>
+        </FrameLayout>
+    </LinearLayout>
+</FrameLayout>

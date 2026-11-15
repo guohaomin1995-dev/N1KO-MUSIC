@@ -56,6 +56,7 @@ import { usePlayerStore } from '@/store/playerStore'
 import { ArtWash } from '@/components/art/ArtWash'
 import { ScrollContainerContext } from './scrollContainer'
 import { useNativeMediaControls } from '@/services/nativeMediaControls'
+import { useHomeWidget } from '@/services/homeWidget'
 import { Toaster } from '@/components/ui/toaster'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import {
@@ -83,6 +84,8 @@ export default function MainLayout() {
   useOfflineLibraryCache()
   // 原生壳集成：锁屏控制、状态栏、返回键……两者内部都先判断是否原生，网页上是空操作
   useNativeMediaControls()
+  // 安卓桌面小部件：同步在放什么、接小部件上的按键（网页上、桌面上没放小部件时——包括电视——是空操作）
+  useHomeWidget()
   useNativeAppIntegration()
   // 房间的光：当前封面的色相写进根元素的 --art-*
   useArtLight()

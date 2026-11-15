@@ -34,6 +34,7 @@ The same app takes a different shape on each screen. It is not the phone layout 
 - Three views in Now Playing: **Cover / Lyrics / Up Next**; swipe the cover to change track
 - Turn it sideways and Now Playing becomes a stack of large covers you flick through
 - The notification, lock screen, wired headsets and Bluetooth buttons all control playback
+- **Home screen widgets**: a small one (2×2) with skip, play / pause and favourite; a large one (4×2) that adds the cover and a progress bar. The frosted-glass background takes its colour from the cover, and its transparency is adjustable
 
 </td>
 <td width="50%" valign="top">
