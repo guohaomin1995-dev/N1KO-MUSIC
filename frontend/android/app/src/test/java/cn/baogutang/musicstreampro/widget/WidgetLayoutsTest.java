@@ -92,7 +92,7 @@ public class WidgetLayoutsTest {
             for (int w = 250; w <= 700; w += 3) {
                 for (int h = 110; h <= 320; h += 7) {
                     WidgetLayouts.Variant v = WidgetLayouts.pick(cells, w, h);
-                    if (v.cover <= 0) continue;
+                    if (v.cover <= 0 || v.kind == WidgetLayouts.LARGE_ROW) continue;
                     assertTrue("封面不超过上限", v.cover <= m.coverMax);
                     assertTrue("封面不小于下限", v.cover >= m.coverMin);
                     assertTrue(w + "x" + h + " " + v + " 三个按钮放得下",
@@ -204,7 +204,51 @@ public class WidgetLayoutsTest {
     public void pickFallsBackToTheSmallestWhenNothingFits() {
         List<WidgetLayouts.Cell> cells = WidgetLayouts.large(phone(true));
         WidgetLayouts.Variant v = WidgetLayouts.pick(cells, 10, 10);
-        assertEquals(WidgetLayouts.LARGE_COMPACT, v.kind);
+        assertEquals(WidgetLayouts.LARGE_ROW, v.kind);
         assertEquals(0f, v.cover, 0.01f);
+    }
+
+    @Test
+    public void largeOneRowOnTheHonorTabletIsAStrip() {
+        // 荣耀平板上把大号压成一行：实际 417×112dp。以前用的是矮排法，要 136dp 高，播放键下半截被切掉
+        WidgetLayouts.Metrics m = tablet();
+        WidgetLayouts.Variant v = WidgetLayouts.pick(WidgetLayouts.large(m), 417, 112);
+        assertEquals(WidgetLayouts.LARGE_ROW, v.kind);
+        assertTrue("放得下", WidgetLayouts.minHeight(v.kind, m) <= 112);
+        assertTrue("还有收藏", v.heart);
+        assertTrue("还有封面", v.cover >= 40);
+    }
+
+    @Test
+    public void largeOneRowKeepsRoomForTheTitle() {
+        for (WidgetLayouts.Metrics m : new WidgetLayouts.Metrics[] { phone(true), phone(false), tablet() }) {
+            List<WidgetLayouts.Cell> cells = WidgetLayouts.large(m);
+            for (int w = 250; w <= 700; w += 3) {
+                WidgetLayouts.Variant v = WidgetLayouts.pick(cells, w, 80);
+                assertEquals(WidgetLayouts.LARGE_ROW, v.kind);
+                float used = 2 * m.padCompact + 8 + 2 * m.buttonCompact + m.playCompact
+                    + (v.heart ? m.heart : 0) + (v.cover > 0 ? v.cover + m.gap : 0);
+                // 桌面比大小有 1dp 多的余量：差一点点也算放得下
+                assertTrue(w + " " + v + " 歌名至少 72dp", w - used >= 72 - 1.5f);
+            }
+        }
+    }
+
+    @Test
+    public void everyPickedLayoutFitsItsHeight() {
+        // 桌面挑出来的排法，在那个高度上不能切东西（桌面比大小有 1dp 多的余量）
+        for (WidgetLayouts.Metrics m : new WidgetLayouts.Metrics[] { phone(true), phone(false), tablet() }) {
+            List<WidgetLayouts.Cell> large = WidgetLayouts.large(m);
+            List<WidgetLayouts.Cell> small = WidgetLayouts.small(m);
+            for (int w = 110; w <= 700; w += 7) {
+                for (int h = 64; h <= 420; h += 3) {
+                    WidgetLayouts.Variant s = WidgetLayouts.pick(small, w, h);
+                    assertTrue("small " + w + "x" + h + " " + s, WidgetLayouts.minHeight(s.kind, m) <= h + 2);
+                    if (w < 250 || h < 110) continue;
+                    WidgetLayouts.Variant l = WidgetLayouts.pick(large, w, h);
+                    assertTrue("large " + w + "x" + h + " " + l, WidgetLayouts.minHeight(l.kind, m) <= h + 2);
+                }
+            }
+        }
     }
 }

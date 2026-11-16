@@ -32,7 +32,7 @@ import cn.baogutang.musicstreampro.R;
  * 把 {@link WidgetStore} 里的状态画到桌面上的小部件上。
  *
  * 小号（{@link SmallWidgetProvider}）：歌名、歌手、上一首 / 播放暂停 / 下一首、收藏。默认 2×2。
- * 大号（{@link LargeWidgetProvider}）：再加封面和进度条。默认 4×2。
+ * 大号（{@link LargeWidgetProvider}）：再加封面和进度条。默认 4×2，压成一行高（4×1）时换成横条。
  * 各种大小下怎么排见 {@link WidgetLayouts}：Android 12 起把所有排法一起交给桌面，由桌面按实际大小挑。
  *
  * 按钮怎么回到播放器：
@@ -182,6 +182,7 @@ final class WidgetRenderer {
             case WidgetLayouts.SMALL_ROW: return R.layout.widget_small_wide;
             case WidgetLayouts.LARGE_FULL:
             case WidgetLayouts.LARGE_COMPACT: return R.layout.widget_large;
+            case WidgetLayouts.LARGE_ROW: return R.layout.widget_large_row;
             default: return R.layout.widget_small;
         }
     }
@@ -189,7 +190,7 @@ final class WidgetRenderer {
     private static RemoteViews build(
         Context app, WidgetLayouts.Variant v, WidgetStore.State state, boolean playing, Art art, WidgetLayouts.Metrics m
     ) {
-        boolean large = v.kind == WidgetLayouts.LARGE_FULL || v.kind == WidgetLayouts.LARGE_COMPACT;
+        boolean large = v.kind == WidgetLayouts.LARGE_FULL || v.kind == WidgetLayouts.LARGE_COMPACT || v.kind == WidgetLayouts.LARGE_ROW;
         RemoteViews views = new RemoteViews(app.getPackageName(), layoutFor(v.kind));
 
         if (art.background != null) {

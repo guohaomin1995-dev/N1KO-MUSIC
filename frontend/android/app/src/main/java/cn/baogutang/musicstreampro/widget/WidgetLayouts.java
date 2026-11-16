@@ -28,6 +28,7 @@ final class WidgetLayouts {
     static final int SMALL_ROW = 2;
     static final int LARGE_FULL = 3;
     static final int LARGE_COMPACT = 4;
+    static final int LARGE_ROW = 5;
 
     /** 一种排法 */
     static final class Variant {
@@ -105,9 +106,8 @@ final class WidgetLayouts {
      * - 横条（widget_small_wide）：只有一行高的时候，歌名歌手在左、按钮在右，窄了先收收藏、再收上一首。
      */
     static List<Cell> small(Metrics m) {
-        float playShort = m.canResize ? m.playCompact : m.play;
-        float hShort = 10 + Math.max(m.textBlock(), m.heart) + 4 + playShort + 10;
-        float hTall = 10 + Math.max(m.brand * LINE, m.heart) + m.textBlock() + 4 + m.play + 12;
+        float hShort = minHeight(SMALL_SHORT, m);
+        float hTall = minHeight(SMALL_TALL, m);
 
         // 方块里三个按钮平分一排，每份至少要放得下播放键；左右留白 = pad + 8 + 6（见布局）
         float squareChrome = m.pad + 14;
@@ -153,35 +153,83 @@ final class WidgetLayouts {
 
     /* ---------------------------------------------------------------- 大号 */
 
+    /** 横条大号里歌名歌手至少留多宽 */
+    private static final float ROW_TEXT_MIN = 72;
+    /** 横条大号的封面再小就不放了（只有一行高，封面本来就小） */
+    private static final float ROW_COVER_MIN = 40;
+
     /**
      * 大号：左边封面，右边歌名歌手、收藏、进度条、时间、三个按钮。
      * 封面是正方形、边长跟着高度走，但不能把右边挤得放不下三个按钮：宽度不够时封面跟着缩，再窄就不放封面。
-     * 矮的时候（格子矮的手机）去掉时间那一行、留白和按钮都收小一号。
+     * 矮的时候（格子矮的手机）去掉时间那一行、留白和按钮都收小一号；
+     * 只有一行高时（4×1）换成横条：封面、歌名歌手和进度条、三个按钮、收藏排成一行。
      */
     static List<Cell> large(Metrics m) {
-        float hFull = 2 * m.pad + Math.max(m.textBlock(), m.heart) + 6 + m.progress + 3 + m.time * LINE + 2 + m.play;
+        float hFull = minHeight(LARGE_FULL, m);
+        float hCompact = minHeight(LARGE_COMPACT, m);
         float controlsFull = controls(m, false);
 
         List<Float> widthList = new ArrayList<>();
         widthList.add(0f);
-        int steps = 4;
+        int steps = 3;
         for (int i = 0; i <= steps; i++) {
             float cover = m.coverMin + (m.coverMax - m.coverMin) * i / steps;
             widthList.add(2 * m.pad + cover + m.gap + controlsFull);
         }
-        float[] heights = { 0, hFull };
+        float[] heights = { 0, hCompact, hFull };
         List<Cell> cells = new ArrayList<>();
         for (float h : heights) {
-            boolean full = h >= hFull;
             for (float w : widthList) {
-                float pad = full ? m.pad : m.padCompact;
-                float room = w - 2 * pad - m.gap - controls(m, !full);
-                float cover = Math.min(m.coverMax, room);
-                if (cover < m.coverMin) cover = 0;
-                cells.add(new Cell(w, h, new Variant(full ? LARGE_FULL : LARGE_COMPACT, !full && m.canResize, true, true, true, cover)));
+                Variant v;
+                if (h >= hFull || h >= hCompact) {
+                    boolean full = h >= hFull;
+                    float pad = full ? m.pad : m.padCompact;
+                    float room = w - 2 * pad - m.gap - controls(m, !full);
+                    float cover = Math.min(m.coverMax, room);
+                    if (cover < m.coverMin) cover = 0;
+                    v = new Variant(full ? LARGE_FULL : LARGE_COMPACT, !full && m.canResize, true, true, true, cover);
+                } else {
+                    // 横条：先保住三个按钮和歌名，再放收藏，剩下的给封面（封面本来就被高度限住）
+                    float fixed = 2 * m.padCompact + ROW_TEXT_MIN + 8 + rowButtons(m);
+                    boolean heart = w >= fixed + m.heart;
+                    float cover = Math.min(m.coverMax, w - fixed - (heart ? m.heart : 0) - m.gap);
+                    if (cover < ROW_COVER_MIN) cover = 0;
+                    // 横条的按钮在布局里就是小一号的（老系统上也是），不用再改
+                    v = new Variant(LARGE_ROW, false, true, true, heart, cover);
+                }
+                cells.add(new Cell(w, h, v));
             }
         }
         return cells;
+    }
+
+    /**
+     * 这种排法至少要多高（dp）才放得下、不切东西。和布局文件一一对应：改了布局里的留白、间距，这里跟着改。
+     * 挑排法用它，单元测试也用它检查「挑出来的排法在那个高度上放得下」。
+     */
+    static float minHeight(int kind, Metrics m) {
+        float text = Math.max(m.textBlock(), m.heart);
+        switch (kind) {
+            case SMALL_TALL:
+                return 10 + Math.max(m.brand * LINE, m.heart) + m.textBlock() + 4 + m.play + 12;
+            case SMALL_SHORT:
+                return 10 + text + 4 + (m.canResize ? m.playCompact : m.play) + 10;
+            case SMALL_ROW:
+                return Math.max(m.textBlock(), m.play);
+            case LARGE_FULL:
+                return 2 * m.pad + text + 6 + m.progress + 3 + m.time * LINE + 2 + m.play;
+            case LARGE_COMPACT:
+                return 2 * m.padCompact + text + 2 + m.progress + 2 + (m.canResize ? m.playCompact : m.play) + 2;
+            case LARGE_ROW:
+                return 2 * m.padCompact + Math.max(m.textBlock() + 5 + m.progress, Math.max(m.heart, m.playCompact));
+            default:
+                return 0;
+        }
+    }
+
+    /** 横条大号里三个按钮一共多宽：紧挨着排、小一号（widget_large_row 里写死的尺寸） */
+    private static float rowButtons(Metrics m) {
+        return 2 * m.buttonCompact + m.playCompact;
     }
 
     /** 右边那一栏至少要多宽：三个按钮平分，每份放得下播放键，再留一点 */
